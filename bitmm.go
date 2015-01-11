@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-var APIKey = os.Getenv("BITFINEX_API_KEY")
-var APISecret = os.Getenv("BITFINEX_API_SECRET")
+var APIKey = os.Getenv("BITFINEX_KEY")
+var APISecret = os.Getenv("BITFINEX_SECRET")
 
 var apiPublic = bitfinex.New("", "")
 var apiPrivate = bitfinex.New(APIKey, APISecret)
@@ -45,13 +45,13 @@ func clearScreen() {
 
 // Print the book data
 func printBook(book bitfinex.Orderbook) {
-	fmt.Printf("%-10s%-10s%10s\n", "Bid", "Ask", "Size")
-	fmt.Println("------------------------------")
+	fmt.Printf("%-10s%-10s\n", " Bid", " Ask")
+	fmt.Println("--------------------------")
 	for i := range book.Asks {
 		item := book.Asks[len(book.Asks)-1-i]
-		fmt.Printf("%-10s%-10.2f%10.2f\n", "", item.Price, item.Amount)
+		fmt.Printf("%-10s%-10.2f%6.2f\n", "", item.Price, item.Amount)
 	}
 	for _, item := range book.Bids {
-		fmt.Printf("%-10.2f%-10.2s%10.2f\n", item.Price, "", item.Amount)
+		fmt.Printf("%-10.2f%-10.2s%6.2f\n", item.Price, "", item.Amount)
 	}
 }

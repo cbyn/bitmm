@@ -3,6 +3,10 @@
 package bitfinex
 
 import (
+	"crypto/hmac"
+	"crypto/sha512"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
 	"log"
@@ -42,7 +46,8 @@ func New(key, secret string) (api *API) {
 }
 
 // Get book data from exchange
-func (api *API) GetBook(url string) (book Orderbook) {
+func (api *API) GetBook(url string) Orderbook {
+	var book Orderbook
 	data, err := api.get("book/" + url)
 	if err != nil {
 		log.Fatal(err)
@@ -51,16 +56,53 @@ func (api *API) GetBook(url string) (book Orderbook) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return
+
+	return book
 }
 
 // API GET
-func (api *API) get(url string) (body []byte, err error) {
+func (api *API) get(url string) ([]byte, error) {
 	resp, err := http.Get(APIURL + url)
 	if err != nil {
-		return
+		return []byte{}, err
 	}
 	defer resp.Body.Close()
-	body, err = ioutil.ReadAll(resp.Body)
-	return
+
+	return ioutil.ReadAll(resp.Body)
+}
+
+// API POST method based on github.com/eAndrius/bitfinex-go
+func (api *API) post(url string, payload interface{}) ([]byte, error) {
+	// X-BFX-PAYLOAD
+	// parameters-dictionary -> JSON encode -> base64
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return []byte{}, err
+	}
+	payloadBase64 := base64.StdEncoding.EncodeToString(payloadJSON)
+
+	// X-BFX-SIGNATURE
+	// HMAC-SHA384(payload, api-secret) as hexadecimal
+	h := hmac.New(sha512.New384, []byte(api.APISecret))
+	h.Write([]byte(payloadBase64))
+	signature := hex.EncodeToString(h.Sum(nil))
+
+	// POST
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", APIURL+url, nil)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	req.Header.Add("X-BFX-APIKEY", api.APIKey)
+	req.Header.Add("X-BFX-PAYLOAD", payloadBase64)
+	req.Header.Add("X-BFX-SIGNATURE", signature)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return []byte{}, err
+	}
+	defer resp.Body.Close()
+
+	return ioutil.ReadAll(resp.Body)
 }
