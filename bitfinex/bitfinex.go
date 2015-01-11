@@ -9,26 +9,41 @@ import (
 	"net/http"
 )
 
-type Bitfinex struct {
-	RequestURL string
+const (
+	APIURL = "https://api.bitfinex.com/v1/" // Bitfinex API URL
+)
+
+// Stores Bitfinex API credentials
+type API struct {
+	APIKey    string
+	APISecret string
 }
 
-// JSON data from the exchange
-type Book struct {
-	Bids []BookItems // Slice of bid data items
-	Asks []BookItems // Slice of ask data items
+// Order book data from the exchange
+type Orderbook struct {
+	Bids []OrderbookItems // Slice of bid data items
+	Asks []OrderbookItems // Slice of ask data items
 }
 
-// Inner JSON data from the exchange
-type BookItems struct {
-	Price     string // Order price
-	Amount    string // Order volume
-	Timestamp string // Exchange timestamp
+// Inner order book data from the exchange
+type OrderbookItems struct {
+	Price     float64 `json:"price,string"`     // Order price
+	Amount    float64 `json:"amount,string"`    // Order volume
+	Timestamp float64 `json:"timestamp,string"` // Exchange timestamp
 }
 
-// Method to get book data from exchange
-func (b Bitfinex) GetBook() (book Book) {
-	data, err := getData(b.RequestURL)
+// Return a new Bitfinex API instance
+func New(key, secret string) (api *API) {
+	api = &API{
+		APIKey:    key,
+		APISecret: secret,
+	}
+	return api
+}
+
+// Get book data from exchange
+func (api *API) GetBook(url string) (book Orderbook) {
+	data, err := api.get("book/" + url)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,15 +51,16 @@ func (b Bitfinex) GetBook() (book Book) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return book
+	return
 }
 
-// Make an API request
-func getData(url string) ([]byte, error) {
-	resp, err := http.Get(url)
+// API GET
+func (api *API) get(url string) (body []byte, err error) {
+	resp, err := http.Get(APIURL + url)
 	if err != nil {
-		return []byte{}, err
+		return
 	}
 	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
+	body, err = ioutil.ReadAll(resp.Body)
+	return
 }
