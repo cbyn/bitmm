@@ -25,7 +25,7 @@ func main() {
 // Get and print order book data
 func processBook() {
 	defer timeTrack(time.Now())
-	book := apiPublic.GetBook("btcusd?limit_bids=10&limit_asks=10")
+	book := apiPublic.Orderbook("btcusd", 10, 10)
 	clearScreen()
 	printBook(book)
 }
@@ -44,7 +44,7 @@ func clearScreen() {
 }
 
 // Print the book data
-func printBook(book bitfinex.Orderbook) {
+func printBook(book bitfinex.Book) {
 	fmt.Printf("%-10s%-10s\n", " Bid", " Ask")
 	fmt.Println("--------------------------")
 	for i := range book.Asks {

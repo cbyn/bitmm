@@ -1,4 +1,4 @@
-// Bitfinex trading API
+// Bitfinex trading API implementation
 
 package bitfinex
 
@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -32,13 +33,13 @@ type ErrorMessage struct {
 }
 
 // Order book data from the exchange
-type Orderbook struct {
-	Bids []OrderbookItems // Slice of bid data items
-	Asks []OrderbookItems // Slice of ask data items
+type Book struct {
+	Bids []BookItems // Slice of bid data items
+	Asks []BookItems // Slice of ask data items
 }
 
 // Inner order book data from the exchange
-type OrderbookItems struct {
+type BookItems struct {
 	Price     float64 `json:"price,string"`     // Order price
 	Amount    float64 `json:"amount,string"`    // Order volume
 	Timestamp float64 `json:"timestamp,string"` // Exchange timestamp
@@ -74,10 +75,11 @@ func New(key, secret string) (api *API) {
 	return api
 }
 
-// Get book data from the exchange
-func (api *API) GetBook(url string) Orderbook {
-	var book Orderbook
-	data, err := api.get("/v1/book/" + url)
+// Get orderbook data from the exchange
+func (api *API) Orderbook(symbol string, limitBids, limitAsks int) Book {
+	var book Book
+	url := fmt.Sprintf("/v1/book/%s?limit_bids=%d&limit_asks=%d", symbol, limitBids, limitAsks)
+	data, err := api.get(url)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -163,7 +165,7 @@ func (api *API) postOrder(url string, request interface{}) (Order, error) {
 	return order, nil
 }
 
-// API GET
+// API unauthenticated GET
 func (api *API) get(url string) ([]byte, error) {
 	resp, err := http.Get(APIURL + url)
 	if err != nil {
@@ -174,16 +176,16 @@ func (api *API) get(url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-// API POST, from github.com/eAndrius/bitfinex-go
+// API autenticated POST
 func (api *API) post(url string, payload interface{}) ([]byte, error) {
-	// X-BFX-PAYLOAD
+	// Payload = parameters-dictionary -> JSON encode -> base64
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return []byte{}, err
 	}
 	payloadBase64 := base64.StdEncoding.EncodeToString(payloadJSON)
 
-	// X-BFX-SIGNATURE
+	// Signature = HMAC-SHA384(payload, api-secret) as hexadecimal
 	h := hmac.New(sha512.New384, []byte(api.APISecret))
 	h.Write([]byte(payloadBase64))
 	signature := hex.EncodeToString(h.Sum(nil))
@@ -195,6 +197,10 @@ func (api *API) post(url string, payload interface{}) ([]byte, error) {
 		return []byte{}, err
 	}
 
+	// HTTP headers:
+	// X-BFX-APIKEY
+	// X-BFX-PAYLOAD
+	// X-BFX-SIGNATURE
 	req.Header.Add("X-BFX-APIKEY", api.APIKey)
 	req.Header.Add("X-BFX-PAYLOAD", payloadBase64)
 	req.Header.Add("X-BFX-SIGNATURE", signature)
