@@ -1,6 +1,7 @@
 package bitfinex
 
 import (
+	"math"
 	"os"
 	"testing"
 )
@@ -59,12 +60,36 @@ func TestNewOrder(t *testing.T) {
 	t.Logf("Using trade price: %v", price)
 
 	// Test good order
-	order, err := apiPrivate.NewOrder("btcusd", 0.1, price, "bitfinex", "sell", "limit", true)
+	order, err := apiPrivate.NewOrder("btcusd", 0.1, price, "bitfinex", "sell", "limit")
 	if err != nil || order.ID == 0 {
 		t.Error("Failed: " + err.Error())
 		return
 	}
 	t.Logf("Placed a new sell order of 0.1 btcusd @ 300 limit with ID: %d", order.ID)
+	if order.Symbol != "btcusd" {
+		t.Error("Symbol does not match")
+		return
+	}
+	if math.Abs(order.OriginalAmount-0.1) > 0.000001 {
+		t.Error("Amount does not match")
+		return
+	}
+	if math.Abs(order.Price-price) > 0.000001 {
+		t.Error("Price does not match")
+		return
+	}
+	if order.Exchange != "bitfinex" {
+		t.Error("Exchange does not match")
+		return
+	}
+	if order.Side != "sell" {
+		t.Error("Side does not match")
+		return
+	}
+	if order.Type != "limit" {
+		t.Error("Type does not match")
+		return
+	}
 
 	// Test active orders
 	orders, err := apiPrivate.ActiveOrders()
@@ -72,19 +97,48 @@ func TestNewOrder(t *testing.T) {
 		t.Error("Failed: " + err.Error())
 		return
 	}
-	if orders[0] != order {
+	if orders[0].ID != order.ID {
 		t.Error("Failed: expected active orders to return current order")
 		return
 	}
 
 	// Test status
+	order2, err := apiPrivate.OrderStatus(order.ID)
+	if err != nil {
+		t.Error("Failed: " + err.Error())
+		return
+	}
+	if order.ID != order2.ID {
+		t.Error("Failed: expected order status to return current order")
+		return
+	}
 
 	// Test replace
+	price += 10
+	order, err = apiPrivate.ReplaceOrder(order.ID, "btcusd", 0.1, price, "bitfinex", "sell", "limit")
+	if err != nil || order.ID == 0 {
+		t.Error("Failed: " + err.Error())
+		return
+	}
+	if math.Abs(order.Price-price) > 0.000001 {
+		t.Error("Price does not match after attempted replace")
+		return
+	}
+	t.Logf("Increased price by 10 for order ID: %d", order.ID)
 
 	// Test cancel
+	order, err = apiPrivate.CancelOrder(order.ID)
+	if err != nil || order.ID == 0 {
+		t.Error("Failed: " + err.Error())
+		return
+	}
+	if !order.IsCancelled {
+		t.Error("***** ORDER NOT CANCELLED! *****")
+	}
+	t.Logf("Cancelled order with ID: %d", order.ID)
 
 	// Test bad order
-	order, err = apiPrivate.NewOrder("badsymbol", 0.1, 300, "bitfinex", "sell", "limit", true)
+	order, err = apiPrivate.NewOrder("badsymbol", 0.1, 300, "bitfinex", "sell", "limit")
 	if err == nil {
 		t.Error("Failed: expected error on bad order")
 		return

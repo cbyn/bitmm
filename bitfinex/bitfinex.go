@@ -127,7 +127,7 @@ func (api *API) Orderbook(symbol string, limitBids, limitAsks int) (Book, error)
 }
 
 // Post new order to the exchange
-func (api *API) NewOrder(symbol string, amount, price float64, exchange, side, otype string, hidden bool) (Order, error) {
+func (api *API) NewOrder(symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
 	request := struct {
 		URL      string  `json:"request"`
 		Nonce    string  `json:"nonce"`
@@ -137,7 +137,7 @@ func (api *API) NewOrder(symbol string, amount, price float64, exchange, side, o
 		Exchange string  `json:"exchange"`
 		Side     string  `json:"side"`
 		Type     string  `json:"type"`
-		Hidden   bool    `json:"is_hidden,bool"`
+		// Hidden   bool    `json:"is_hidden,bool"`
 	}{
 		"/v1/order/new",
 		strconv.FormatInt(time.Now().UnixNano(), 10),
@@ -147,7 +147,7 @@ func (api *API) NewOrder(symbol string, amount, price float64, exchange, side, o
 		exchange,
 		side,
 		otype,
-		hidden,
+		// hidden,
 	}
 
 	return api.postOrder(request.URL, request)
@@ -168,9 +168,36 @@ func (api *API) CancelOrder(id int) (Order, error) {
 	return api.postOrder(request.URL, request)
 }
 
-// func (api *API) ReplaceOrder() (Order, error) {
-// }
+// Replace existing order on the exchange
+func (api *API) ReplaceOrder(id int, symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
+	request := struct {
+		URL      string  `json:"request"`
+		Nonce    string  `json:"nonce"`
+		OrderID  int     `json:"order_id"`
+		Symbol   string  `json:"symbol"`
+		Amount   float64 `json:"amount,string"`
+		Price    float64 `json:"price,string"`
+		Exchange string  `json:"exchange"`
+		Side     string  `json:"side"`
+		Type     string  `json:"type"`
+		// Hidden   bool    `json:"is_hidden,bool"`
+	}{
+		"/v1/order/new",
+		strconv.FormatInt(time.Now().UnixNano(), 10),
+		id,
+		symbol,
+		amount,
+		price,
+		exchange,
+		side,
+		otype,
+		// hidden,
+	}
 
+	return api.postOrder(request.URL, request)
+}
+
+// Get order status
 func (api *API) OrderStatus(id int) (Order, error) {
 	request := struct {
 		URL     string `json:"request"`
@@ -185,6 +212,7 @@ func (api *API) OrderStatus(id int) (Order, error) {
 	return api.postOrder(request.URL, request)
 }
 
+// Get all active orders
 func (api *API) ActiveOrders() (Orders, error) {
 	request := struct {
 		URL   string `json:"request"`
