@@ -1,4 +1,4 @@
-// Package to communicate with bitfinex exchange
+// Bitfinex trading API
 
 package bitfinex
 
@@ -44,6 +44,7 @@ type OrderbookItems struct {
 	Timestamp float64 `json:"timestamp,string"` // Exchange timestamp
 }
 
+// Order data to/from the exchange
 type Order struct {
 	ID              int     `json:"order_id"`                   // Order ID
 	Symbol          string  `json:"symbol"`                     // The symbol name the order belongs to
@@ -61,6 +62,9 @@ type Order struct {
 	OriginalAmount  float64 `json:"original_amount,string"`     // What was the order originally submitted for?
 }
 
+// Slice of orders
+type Orders []Order
+
 // Return a new Bitfinex API instance
 func New(key, secret string) (api *API) {
 	api = &API{
@@ -70,7 +74,7 @@ func New(key, secret string) (api *API) {
 	return api
 }
 
-// Get book data from exchange
+// Get book data from the exchange
 func (api *API) GetBook(url string) Orderbook {
 	var book Orderbook
 	data, err := api.get("/v1/book/" + url)
@@ -85,22 +89,8 @@ func (api *API) GetBook(url string) Orderbook {
 	return book
 }
 
-// Post new order
-
-// Request
-// symbol (string): The name of the symbol (see `/symbols`).
-// amount (decimal): Order size: how much to buy or sell.
-// price (price): Price to buy or sell at. Must be positive. Use random number for market orders.
-// exchange (string): "bitfinex".
-// side (string): Either "buy" or "sell".
-// type (string): Either "market" / "limit" / "stop" / "trailing-stop" / "fill-or-kill" / "exchange market" / "exchange limit" / "exchange stop" / "exchange trailing-stop" / "exchange fill-or-kill". (type starting by "exchange " are exchange orders, others are margin trading orders)
-// is_hidden (bool) true if the order should be hidden. Default is false.
-
-// Response
-// order_id (int): A randomly generated ID for the order.
-// and the information given by /order/status
+// Post new order to the exchange
 func (api *API) NewOrder(symbol string, amount, price float64, exchange, side, otype string, hidden bool) (Order, error) {
-	var order Order
 	request := struct {
 		URL      string  `json:"request"`
 		Nonce    string  `json:"nonce"`
@@ -123,17 +113,47 @@ func (api *API) NewOrder(symbol string, amount, price float64, exchange, side, o
 		hidden,
 	}
 
-	body, err := api.post(request.URL, request)
+	return api.postOrder(request.URL, request)
+}
+
+// Cancel existing order on the exchange
+func (api *API) CancelOrder(id int) (Order, error) {
+	request := struct {
+		URL     string `json:"request"`
+		Nonce   string `json:"nonce"`
+		OrderID int    `json:"order_id"`
+	}{
+		"/v1/order/cancel",
+		strconv.FormatInt(time.Now().UnixNano(), 10),
+		id,
+	}
+
+	return api.postOrder(request.URL, request)
+}
+
+// func (api *API) ReplaceOrder() (Order, error) {
+// }
+
+// func (api *API) OrderStatus() (Order, error) {
+// }
+
+// func (api *API) ActiveOrders() (Orders, error) {
+// }
+
+// Post Order info, used in order-related API methods
+func (api *API) postOrder(url string, request interface{}) (Order, error) {
+	var order Order
+
+	body, err := api.post(url, request)
 	if err != nil {
 		return order, err
 	}
 
 	err = json.Unmarshal(body, &order)
-	if err != nil || order.ID == 0 { // Failed to unmarshal expected message
-		// Attempt to unmarshal the error message
+	if err != nil || order.ID == 0 {
 		errorMessage := ErrorMessage{}
 		err = json.Unmarshal(body, &errorMessage)
-		if err != nil { // Not expected message and not expected error, bailing...
+		if err != nil {
 			return order, err
 		}
 
@@ -154,7 +174,7 @@ func (api *API) get(url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-// API POST method based on github.com/eAndrius/bitfinex-go
+// API POST, from github.com/eAndrius/bitfinex-go
 func (api *API) post(url string, payload interface{}) ([]byte, error) {
 	// X-BFX-PAYLOAD
 	payloadJSON, err := json.Marshal(payload)
