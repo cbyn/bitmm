@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"time"
+	"log"
 )
 
 var APIKey = os.Getenv("BITFINEX_KEY")
@@ -25,7 +26,10 @@ func main() {
 // Get and print order book data
 func processBook() {
 	defer timeTrack(time.Now())
-	book := apiPublic.Orderbook("btcusd", 10, 10)
+	book, err := apiPublic.Orderbook("btcusd", 10, 10)
+	if err != nil {
+		log.Fatal(err)
+	}
 	clearScreen()
 	printBook(book)
 }

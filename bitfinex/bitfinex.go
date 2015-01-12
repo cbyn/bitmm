@@ -1,4 +1,4 @@
-// Bitfinex trading API implementation
+// Bitfinex trading API
 
 package bitfinex
 
@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -76,19 +75,21 @@ func New(key, secret string) (api *API) {
 }
 
 // Get orderbook data from the exchange
-func (api *API) Orderbook(symbol string, limitBids, limitAsks int) Book {
+func (api *API) Orderbook(symbol string, limitBids, limitAsks int) (Book, error) {
 	var book Book
+
 	url := fmt.Sprintf("/v1/book/%s?limit_bids=%d&limit_asks=%d", symbol, limitBids, limitAsks)
 	data, err := api.get(url)
 	if err != nil {
-		log.Fatal(err)
-	}
-	err = json.Unmarshal(data, &book)
-	if err != nil {
-		log.Fatal(err)
+		return book, err
 	}
 
-	return book
+	err = json.Unmarshal(data, &book)
+	if err != nil {
+		return book, err
+	}
+
+	return book, nil
 }
 
 // Post new order to the exchange
@@ -190,7 +191,6 @@ func (api *API) post(url string, payload interface{}) ([]byte, error) {
 	h.Write([]byte(payloadBase64))
 	signature := hex.EncodeToString(h.Sum(nil))
 
-	// POST
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", APIURL+url, nil)
 	if err != nil {
