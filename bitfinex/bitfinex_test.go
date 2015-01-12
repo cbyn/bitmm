@@ -12,14 +12,14 @@ var apiPublic = New("", "")
 var apiPrivate = New(APIKey, APISecret)
 
 func TestTrades(t *testing.T) {
-	// Good request
+	// Test good request
 	trades, err := apiPublic.Trades("btcusd", 10)
 	if err != nil {
 		t.Error("Failed: " + err.Error())
 		return
 	}
 
-	// Bad request
+	// Test bad request
 	trades, err = apiPublic.Trades("badsymbol", 10)
 	if trades != nil {
 		t.Error("Failed: expected empty trades on bad request")
@@ -28,21 +28,21 @@ func TestTrades(t *testing.T) {
 }
 
 func TestOrderbook(t *testing.T) {
-	// Good request
+	// Test good request
 	book, err := apiPublic.Orderbook("btcusd", 10, 10)
 	if err != nil {
 		t.Error("Failed: " + err.Error())
 		return
 	}
 	if book.Bids == nil || book.Asks == nil {
-		t.Error("Failed: expected non-empty book on good request")
+		t.Error("Failed: expected non-empty orderbook on good request")
 		return
 	}
 
-	// Bad request
+	// Test bad request
 	book, err = apiPublic.Orderbook("badsymbol", 10, 10)
 	if book.Bids != nil || book.Asks != nil {
-		t.Error("Failed: expected empty book on bad request")
+		t.Error("Failed: expected empty orderbook on bad request")
 		return
 	}
 }
@@ -58,7 +58,7 @@ func TestNewOrder(t *testing.T) {
 	price := trades[0].Price + 100
 	t.Logf("Using trade price: %v", price)
 
-	// Good order
+	// Test good order
 	order, err := apiPrivate.NewOrder("btcusd", 0.1, price, "bitfinex", "sell", "limit", true)
 	if err != nil || order.ID == 0 {
 		t.Error("Failed: " + err.Error())
@@ -66,22 +66,27 @@ func TestNewOrder(t *testing.T) {
 	}
 	t.Logf("Placed a new sell order of 0.1 btcusd @ 300 limit with ID: %d", order.ID)
 
-	// Bad order
+	// Test active orders
+	orders, err := apiPrivate.ActiveOrders()
+	if err != nil {
+		t.Error("Failed: " + err.Error())
+		return
+	}
+	if orders[0] != order {
+		t.Error("Failed: expected active orders to return current order")
+		return
+	}
+
+	// Test status
+
+	// Test replace
+
+	// Test cancel
+
+	// Test bad order
 	order, err = apiPrivate.NewOrder("badsymbol", 0.1, 300, "bitfinex", "sell", "limit", true)
 	if err == nil {
 		t.Error("Failed: expected error on bad order")
 		return
 	}
 }
-
-func TestActiveOrders(t *testing.T) {
-	orders, err := apiPrivate.ActiveOrders()
-	if err != nil {
-		t.Error("Failed: " + err.Error())
-		return
-	}
-}
-
-// test order cancel
-
-// test order status

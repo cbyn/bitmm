@@ -171,8 +171,19 @@ func (api *API) CancelOrder(id int) (Order, error) {
 // func (api *API) ReplaceOrder() (Order, error) {
 // }
 
-// func (api *API) OrderStatus() (Order, error) {
-// }
+func (api *API) OrderStatus(id int) (Order, error) {
+	request := struct {
+		URL     string `json:"request"`
+		Nonce   string `json:"nonce"`
+		OrderID int    `json:"order_id"`
+	}{
+		"/v1/order/status",
+		strconv.FormatInt(time.Now().UnixNano(), 10),
+		id,
+	}
+
+	return api.postOrder(request.URL, request)
+}
 
 func (api *API) ActiveOrders() (Orders, error) {
 	request := struct {
@@ -186,7 +197,7 @@ func (api *API) ActiveOrders() (Orders, error) {
 	return api.postOrders(request.URL, request)
 }
 
-// Post Order info, used in order-related API methods
+// Post order info, used in order-related API methods
 func (api *API) postOrder(url string, request interface{}) (Order, error) {
 	var order Order
 
@@ -243,7 +254,7 @@ func (api *API) get(url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-// API autenticated POST
+// API authenticated POST
 func (api *API) post(url string, payload interface{}) ([]byte, error) {
 	// Payload = parameters-dictionary -> JSON encode -> base64
 	payloadJSON, err := json.Marshal(payload)
