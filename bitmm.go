@@ -1,4 +1,4 @@
-// Simple bitcoin market-making program for bitfinex exchange
+// This only shows a streaming orderbook right now
 
 package main
 

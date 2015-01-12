@@ -37,6 +37,7 @@ type Book struct {
 	Asks []BookItems // Slice of ask data items
 }
 
+// TODO: why is timestamp sometimes an int and sometimes float?
 // Inner order book data from the exchange
 type BookItems struct {
 	Price     float64 `json:"price,string"`     // Order price
@@ -44,6 +45,21 @@ type BookItems struct {
 	Timestamp float64 `json:"timestamp,string"` // Exchange timestamp
 }
 
+// TODO: why is timestamp sometimes an int and sometimes float?
+// Trade data from the exchange
+type Trade struct {
+	Timestamp int 	  `json:"timestamp"` 		// Exchange timestamp
+	TID       int     `json:"tid"`              // Trade ID
+	Price     float64 `json:"price,string"`     // Trade price
+	Amount    float64 `json:"amount,string"`    // Trade size
+	Exchange  string  `json:"exchange"`         // Exchange name "bitfinex"
+	Type      string  `json:"type"`             // Type, if it can be determined
+}
+
+// Slice of trades
+type Trades []Trade
+
+// TODO: why is timestamp sometimes an int and sometimes float?
 // Order data to/from the exchange
 type Order struct {
 	ID              int     `json:"order_id"`                   // Order ID
@@ -52,7 +68,7 @@ type Order struct {
 	Price           float64 `json:"price,string"`               // The price the order was issued at (can be null for market orders)
 	ExecutionPrice  float64 `json:"avg_execution_price,string"` // The average price at which this order as been executed so far. 0 if the order has not been executed at all
 	Side            string  `json:"side"`                       // Either "buy" or "sell"
-	OrderType       string  `json:"type"`                       // Either "market" / "limit" / "stop" / "trailing-stop"
+	Type            string  `json:"type"`                       // Either "market" / "limit" / "stop" / "trailing-stop"
 	Timestamp       float64 `json:"timestamp,string"`           // The timestamp the order was submitted
 	IsLive          bool    `json:"is_live,bool"`               // Could the order still be filled?
 	IsCancelled     bool    `json:"is_cancelled,bool"`          // Has the order been cancelled?
@@ -72,6 +88,24 @@ func New(key, secret string) (api *API) {
 		APISecret: secret,
 	}
 	return api
+}
+
+// Get trade data from the exchange
+func (api *API) Trades(symbol string, limitTrades int) (Trades, error) {
+	var trades Trades
+
+	url := fmt.Sprintf("/v1/trades/%s?limit_trades=%d", symbol, limitTrades)
+	data, err := api.get(url)
+	if err != nil {
+		return trades, err
+	}
+
+	err = json.Unmarshal(data, &trades)
+	if err != nil {
+		return trades, err
+	}
+
+	return trades, nil
 }
 
 // Get orderbook data from the exchange
@@ -147,15 +181,15 @@ func (api *API) CancelOrder(id int) (Order, error) {
 func (api *API) postOrder(url string, request interface{}) (Order, error) {
 	var order Order
 
-	body, err := api.post(url, request)
+	data, err := api.post(url, request)
 	if err != nil {
 		return order, err
 	}
 
-	err = json.Unmarshal(body, &order)
+	err = json.Unmarshal(data, &order)
 	if err != nil || order.ID == 0 {
 		errorMessage := ErrorMessage{}
-		err = json.Unmarshal(body, &errorMessage)
+		err = json.Unmarshal(data, &errorMessage)
 		if err != nil {
 			return order, err
 		}
