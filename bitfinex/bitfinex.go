@@ -48,12 +48,12 @@ type BookItems struct {
 // TODO: why is timestamp sometimes an int and sometimes float?
 // Trade data from the exchange
 type Trade struct {
-	Timestamp int 	  `json:"timestamp"` 		// Exchange timestamp
-	TID       int     `json:"tid"`              // Trade ID
-	Price     float64 `json:"price,string"`     // Trade price
-	Amount    float64 `json:"amount,string"`    // Trade size
-	Exchange  string  `json:"exchange"`         // Exchange name "bitfinex"
-	Type      string  `json:"type"`             // Type, if it can be determined
+	Timestamp int     `json:"timestamp"`     // Exchange timestamp
+	TID       int     `json:"tid"`           // Trade ID
+	Price     float64 `json:"price,string"`  // Trade price
+	Amount    float64 `json:"amount,string"` // Trade size
+	Exchange  string  `json:"exchange"`      // Exchange name "bitfinex"
+	Type      string  `json:"type"`          // Type, if it can be determined
 }
 
 // Slice of trades
@@ -174,8 +174,17 @@ func (api *API) CancelOrder(id int) (Order, error) {
 // func (api *API) OrderStatus() (Order, error) {
 // }
 
-// func (api *API) ActiveOrders() (Orders, error) {
-// }
+func (api *API) ActiveOrders() (Orders, error) {
+	request := struct {
+		URL   string `json:"request"`
+		Nonce string `json:"nonce"`
+	}{
+		"/v1/orders",
+		strconv.FormatInt(time.Now().UnixNano(), 10),
+	}
+
+	return api.postOrders(request.URL, request)
+}
 
 // Post Order info, used in order-related API methods
 func (api *API) postOrder(url string, request interface{}) (Order, error) {
@@ -198,6 +207,29 @@ func (api *API) postOrder(url string, request interface{}) (Order, error) {
 	}
 
 	return order, nil
+}
+
+// Post order*s* info, used in multi order-related API methods
+func (api *API) postOrders(url string, request interface{}) (Orders, error) {
+	var orders Orders
+
+	data, err := api.post(url, request)
+	if err != nil {
+		return orders, err
+	}
+
+	err = json.Unmarshal(data, &orders)
+	if err != nil {
+		errorMessage := ErrorMessage{}
+		err = json.Unmarshal(data, &errorMessage)
+		if err != nil {
+			return orders, err
+		}
+
+		return orders, errors.New("API: " + errorMessage.Message)
+	}
+
+	return orders, nil
 }
 
 // API unauthenticated GET

@@ -27,7 +27,7 @@ func TestTrades(t *testing.T) {
 	}
 }
 
-func TestBook(t *testing.T) {
+func TestOrderbook(t *testing.T) {
 	// Good request
 	book, err := apiPublic.Orderbook("btcusd", 10, 10)
 	if err != nil {
@@ -73,3 +73,15 @@ func TestNewOrder(t *testing.T) {
 		return
 	}
 }
+
+func TestActiveOrders(t *testing.T) {
+	orders, err := apiPrivate.ActiveOrders()
+	if err != nil {
+		t.Error("Failed: " + err.Error())
+		return
+	}
+}
+
+// test order cancel
+
+// test order status
