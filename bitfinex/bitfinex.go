@@ -37,7 +37,7 @@ type Book struct {
 	Asks []BookItems // Slice of ask data items
 }
 
-// TODO: why is timestamp sometimes an int and sometimes float?
+// TODO: why is timestamp sometimes an int and sometimes a float?
 // Inner order book data from the exchange
 type BookItems struct {
 	Price     float64 `json:"price,string"`     // Order price
@@ -45,7 +45,7 @@ type BookItems struct {
 	Timestamp float64 `json:"timestamp,string"` // Exchange timestamp
 }
 
-// TODO: why is timestamp sometimes an int and sometimes float?
+// TODO: why is timestamp sometimes an int and sometimes a float?
 // Trade data from the exchange
 type Trade struct {
 	Timestamp int     `json:"timestamp"`     // Exchange timestamp
@@ -59,7 +59,7 @@ type Trade struct {
 // Slice of trades
 type Trades []Trade
 
-// TODO: why is timestamp sometimes an int and sometimes float?
+// TODO: why is timestamp sometimes an int and sometimes a float?
 // Order data to/from the exchange
 type Order struct {
 	ID              int     `json:"order_id"`                   // Order ID
@@ -182,7 +182,7 @@ func (api *API) ReplaceOrder(id int, symbol string, amount, price float64, excha
 		Type     string  `json:"type"`
 		// Hidden   bool    `json:"is_hidden,bool"`
 	}{
-		"/v1/order/new",
+		"/v1/order/cancel/replace",
 		strconv.FormatInt(time.Now().UnixNano(), 10),
 		id,
 		symbol,
@@ -235,7 +235,7 @@ func (api *API) postOrder(url string, request interface{}) (Order, error) {
 	}
 
 	err = json.Unmarshal(data, &order)
-	if err != nil || order.ID == 0 {
+	if err != nil {
 		errorMessage := ErrorMessage{}
 		err = json.Unmarshal(data, &errorMessage)
 		if err != nil {

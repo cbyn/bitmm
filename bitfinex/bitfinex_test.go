@@ -1,20 +1,22 @@
 package bitfinex
 
 import (
+	// "github.com/davecgh/go-spew/spew"
 	"math"
 	"os"
 	"testing"
 )
 
-var APIKey = os.Getenv("BITFINEX_KEY")
-var APISecret = os.Getenv("BITFINEX_SECRET")
-
-var apiPublic = New("", "")
-var apiPrivate = New(APIKey, APISecret)
+var (
+	APIKey     = os.Getenv("BITFINEX_KEY")
+	APISecret  = os.Getenv("BITFINEX_SECRET")
+	apiPublic  = New("", "")
+	apiPrivate = New(APIKey, APISecret)
+)
 
 func TestTrades(t *testing.T) {
 	// Test good request
-	trades, err := apiPublic.Trades("btcusd", 10)
+	trades, err := apiPublic.Trades("ltcusd", 10)
 	if err != nil {
 		t.Error("Failed: " + err.Error())
 		return
@@ -30,7 +32,7 @@ func TestTrades(t *testing.T) {
 
 func TestOrderbook(t *testing.T) {
 	// Test good request
-	book, err := apiPublic.Orderbook("btcusd", 10, 10)
+	book, err := apiPublic.Orderbook("ltcusd", 10, 10)
 	if err != nil {
 		t.Error("Failed: " + err.Error())
 		return
@@ -50,27 +52,33 @@ func TestOrderbook(t *testing.T) {
 
 func TestNewOrder(t *testing.T) {
 	// Get a current price to use for trade
-	trades, err := apiPublic.Trades("btcusd", 1)
+	trades, err := apiPublic.Trades("ltcusd", 1)
 	if err != nil {
 		t.Error("Failed: " + err.Error())
 		return
 	}
-	// Safe sell price
-	price := trades[0].Price + 100
+	// Set a safe sell price above the current price
+	price := trades[0].Price + 0.20
 	t.Logf("Using trade price: %v", price)
+	// Other inputs to NewOrder
+	symbol := "ltcusd"
+	amount := 0.1
+	exchange := "bitfinex"
+	side := "sell"
+	otype := "limit"
 
-	// Test good order
-	order, err := apiPrivate.NewOrder("btcusd", 0.1, price, "bitfinex", "sell", "limit")
+	// Test submitting a new order
+	order, err := apiPrivate.NewOrder(symbol, amount, price, exchange, side, otype)
 	if err != nil || order.ID == 0 {
 		t.Error("Failed: " + err.Error())
 		return
 	}
-	t.Logf("Placed a new sell order of 0.1 btcusd @ 300 limit with ID: %d", order.ID)
-	if order.Symbol != "btcusd" {
+	t.Logf("Placed a new sell order of 0.1 ltcusd @ %v limit with ID: %d", price, order.ID)
+	if order.Symbol != symbol {
 		t.Error("Symbol does not match")
 		return
 	}
-	if math.Abs(order.OriginalAmount-0.1) > 0.000001 {
+	if math.Abs(order.OriginalAmount-amount) > 0.000001 {
 		t.Error("Amount does not match")
 		return
 	}
@@ -78,15 +86,15 @@ func TestNewOrder(t *testing.T) {
 		t.Error("Price does not match")
 		return
 	}
-	if order.Exchange != "bitfinex" {
+	if order.Exchange != exchange {
 		t.Error("Exchange does not match")
 		return
 	}
-	if order.Side != "sell" {
+	if order.Side != side {
 		t.Error("Side does not match")
 		return
 	}
-	if order.Type != "limit" {
+	if order.Type != otype {
 		t.Error("Type does not match")
 		return
 	}
@@ -97,50 +105,51 @@ func TestNewOrder(t *testing.T) {
 		t.Error("Failed: " + err.Error())
 		return
 	}
-	if orders[0].ID != order.ID {
-		t.Error("Failed: expected active orders to return current order")
+	if orders[0].Price != order.Price {
+		t.Error("Failed: expected active orders to return a match")
 		return
 	}
 
-	// Test status
-	order2, err := apiPrivate.OrderStatus(order.ID)
-	if err != nil {
-		t.Error("Failed: " + err.Error())
-		return
-	}
-	if order.ID != order2.ID {
-		t.Error("Failed: expected order status to return current order")
-		return
-	}
-
-	// Test replace
-	price += 10
-	order, err = apiPrivate.ReplaceOrder(order.ID, "btcusd", 0.1, price, "bitfinex", "sell", "limit")
+	// Test replacing the active order
+	price += 0.1
+	order, err = apiPrivate.ReplaceOrder(order.ID, symbol, amount, price, exchange, side, otype)
 	if err != nil || order.ID == 0 {
 		t.Error("Failed: " + err.Error())
 		return
 	}
 	if math.Abs(order.Price-price) > 0.000001 {
-		t.Error("Price does not match after attempted replace")
+		t.Error("Failed: price does not match after attempted replace")
 		return
 	}
-	t.Logf("Increased price by 10 for order ID: %d", order.ID)
+	t.Logf("Increased price by 0.1")
 
-	// Test cancel
-	order, err = apiPrivate.CancelOrder(order.ID)
-	if err != nil || order.ID == 0 {
+	// Test cancelling the order
+	_, err = apiPrivate.CancelOrder(order.ID)
+	if err != nil {
+		t.Error("Failed: " + err.Error())
+		return
+	}
+
+	// Test status
+	order, err = apiPrivate.OrderStatus(order.ID)
+	if err != nil {
 		t.Error("Failed: " + err.Error())
 		return
 	}
 	if !order.IsCancelled {
-		t.Error("***** ORDER NOT CANCELLED! *****")
+		t.Error("Failed: ORDER NOT CANCELLED!")
+		return
 	}
-	t.Logf("Cancelled order with ID: %d", order.ID)
+	t.Logf("Cancelled order")
 
-	// Test bad order
+	// Test submitting a bad order
 	order, err = apiPrivate.NewOrder("badsymbol", 0.1, 300, "bitfinex", "sell", "limit")
-	if err == nil {
-		t.Error("Failed: expected error on bad order")
+	if order.ID != 0 {
+		t.Error("Failed: expected order.ID == 0 on bad order")
 		return
 	}
 }
+
+// Test multi order
+// Test multi update
+// Test cancel all

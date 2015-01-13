@@ -5,17 +5,18 @@ package main
 import (
 	"./bitfinex"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"time"
-	"log"
 )
 
-var APIKey = os.Getenv("BITFINEX_KEY")
-var APISecret = os.Getenv("BITFINEX_SECRET")
-
-var apiPublic = bitfinex.New("", "")
-var apiPrivate = bitfinex.New(APIKey, APISecret)
+var (
+	APIKey     = os.Getenv("BITFINEX_KEY")
+	APISecret  = os.Getenv("BITFINEX_SECRET")
+	apiPublic  = bitfinex.New("", "")
+	apiPrivate = bitfinex.New(APIKey, APISecret)
+)
 
 func main() {
 	for {
@@ -26,7 +27,7 @@ func main() {
 // Get and print order book data
 func processBook() {
 	defer timeTrack(time.Now())
-	book, err := apiPublic.Orderbook("btcusd", 10, 10)
+	book, err := apiPublic.Orderbook("ltcusd", 10, 10)
 	if err != nil {
 		log.Fatal(err)
 	}
