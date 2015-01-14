@@ -63,6 +63,7 @@ type Trades []Trade
 // Order data to/from the exchange
 type Order struct {
 	ID              int     `json:"order_id"`                   // Order ID
+	AltID           int     `json:"id"`                         // Sometimes called just "id"!
 	Symbol          string  `json:"symbol"`                     // The symbol name the order belongs to
 	Exchange        string  `json:"exchange"`                   // Exchange name "bitfinex"
 	Price           float64 `json:"price,string"`               // The price the order was issued at (can be null for market orders)
@@ -78,20 +79,18 @@ type Order struct {
 	OriginalAmount  float64 `json:"original_amount,string"`     // What was the order originally submitted for?
 }
 
-// Slice of orders
-type Orders []Order
+type Orders struct {
+	Orders []Order `json:"order_ids"`
+}
 
 // Inputs for submitting an order
-type OrderInput struct {
-	URL      string  `json:"request"`
-	Nonce    string  `json:"nonce"`
+type OrderParams struct {
 	Symbol   string  `json:"symbol"`
 	Amount   float64 `json:"amount,string"`
 	Price    float64 `json:"price,string"`
 	Exchange string  `json:"exchange"`
 	Side     string  `json:"side"`
 	Type     string  `json:"type"`
-	// Hidden   bool    `json:"is_hidden,bool"`
 }
 
 // Return a new Bitfinex API instance
@@ -150,7 +149,6 @@ func (api *API) NewOrder(symbol string, amount, price float64, exchange, side, o
 		Exchange string  `json:"exchange"`
 		Side     string  `json:"side"`
 		Type     string  `json:"type"`
-		// Hidden   bool    `json:"is_hidden,bool"`
 	}{
 		"/v1/order/new",
 		strconv.FormatInt(time.Now().UnixNano(), 10),
@@ -160,14 +158,23 @@ func (api *API) NewOrder(symbol string, amount, price float64, exchange, side, o
 		exchange,
 		side,
 		otype,
-		// hidden,
 	}
 
 	return api.postOrder(request.URL, request)
 }
 
-func (api *API) MultipleNewOrders() {
+func (api *API) MultipleNewOrders(params []OrderParams) (Orders, error) {
+	request := struct {
+		URL    string        `json:"request"`
+		Nonce  string        `json:"nonce"`
+		Params []OrderParams `json:"orders"`
+	}{
+		"/v1/order/new/multi",
+		strconv.FormatInt(time.Now().UnixNano(), 10),
+		params,
+	}
 
+	return api.postMultiOrder(request.URL, request)
 }
 
 // Cancel existing order on the exchange
@@ -197,7 +204,6 @@ func (api *API) ReplaceOrder(id int, symbol string, amount, price float64, excha
 		Exchange string  `json:"exchange"`
 		Side     string  `json:"side"`
 		Type     string  `json:"type"`
-		// Hidden   bool    `json:"is_hidden,bool"`
 	}{
 		"/v1/order/cancel/replace",
 		strconv.FormatInt(time.Now().UnixNano(), 10),
@@ -208,7 +214,6 @@ func (api *API) ReplaceOrder(id int, symbol string, amount, price float64, excha
 		exchange,
 		side,
 		otype,
-		// hidden,
 	}
 
 	return api.postOrder(request.URL, request)
@@ -227,19 +232,6 @@ func (api *API) OrderStatus(id int) (Order, error) {
 	}
 
 	return api.postOrder(request.URL, request)
-}
-
-// Get all active orders
-func (api *API) ActiveOrders() (Orders, error) {
-	request := struct {
-		URL   string `json:"request"`
-		Nonce string `json:"nonce"`
-	}{
-		"/v1/orders",
-		strconv.FormatInt(time.Now().UnixNano(), 10),
-	}
-
-	return api.postOrders(request.URL, request)
 }
 
 // Post order info, used in order-related API methods
@@ -265,8 +257,8 @@ func (api *API) postOrder(url string, request interface{}) (Order, error) {
 	return order, nil
 }
 
-// Post order*s* info, used in multi order-related API methods
-func (api *API) postOrders(url string, request interface{}) (Orders, error) {
+// Post multi-order info, used in multi order-related API methods
+func (api *API) postMultiOrder(url string, request interface{}) (Orders, error) {
 	var orders Orders
 
 	data, err := api.post(url, request)

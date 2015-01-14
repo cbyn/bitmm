@@ -59,7 +59,6 @@ func TestNewOrder(t *testing.T) {
 	}
 	// Set a safe sell price above the current price
 	price := trades[0].Price + 0.20
-	t.Logf("Using trade price: %v", price)
 	// Other inputs to NewOrder
 	symbol := "ltcusd"
 	amount := 0.1
@@ -96,17 +95,6 @@ func TestNewOrder(t *testing.T) {
 	}
 	if order.Type != otype {
 		t.Error("Type does not match")
-		return
-	}
-
-	// Test active orders
-	orders, err := apiPrivate.ActiveOrders()
-	if err != nil {
-		t.Error("Failed: " + err.Error())
-		return
-	}
-	if orders[0].Price != order.Price {
-		t.Error("Failed: expected active orders to return a match")
 		return
 	}
 
@@ -150,6 +138,30 @@ func TestNewOrder(t *testing.T) {
 	}
 }
 
-// Test multi order
-// Test multi update
-// Test cancel all
+func TestMultipleNewOrders(t *testing.T) {
+	// Get a current price to use for trade
+	trades, err := apiPublic.Trades("ltcusd", 1)
+	if err != nil {
+		t.Error("Failed: " + err.Error())
+		return
+	}
+	// Set safe trade prices
+	bidPrice := trades[0].Price - 0.20
+	askPrice := trades[0].Price + 0.20
+
+	params := []OrderParams{
+		{"ltcusd", 0.1, bidPrice, "bitfinex", "buy", "limit"},
+		{"ltcusd", 0.1, askPrice, "bitfinex", "sell", "limit"},
+	}
+
+	// Test submitting a new multiple order
+	orders, _ := apiPrivate.MultipleNewOrders(params)
+	if err != nil || orders.Orders[0].AltID == 0 || orders.Orders[1].AltID == 0 {
+		t.Error("Failed: " + err.Error())
+		return
+	}
+
+	// Test multi update
+
+	// Test cancel all
+}
