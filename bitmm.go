@@ -5,38 +5,65 @@ package main
 import (
 	"./bitfinex"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"time"
 )
 
 var (
-	apiPublic  = bitfinex.New("", "")
-	apiPrivate = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
+	apiPublic = bitfinex.New("", "")
 )
 
 func main() {
 	for {
-		processBook()
+		start := time.Now()
+		book, bTime, bErr := processBook()
+		trades, tTime, tErr := processTrades()
+		clearScreen()
+		printResults(book, bTime, bErr, trades, tTime, tErr)
+		fmt.Printf("%v total\n", time.Since(start))
 	}
 }
 
-// Get and print order book data
-func processBook() {
-	defer timeTrack(time.Now())
-	book, err := apiPublic.Orderbook("btcusd", 10, 10)
-	if err != nil {
-		log.Fatal(err)
-	}
-	clearScreen()
-	printBook(book)
+func processBook() (bitfinex.Book, time.Duration, error) {
+	start := time.Now()
+	trades, err := apiPublic.Orderbook("ltcusd", 5, 5)
+	return trades, time.Since(start), err
 }
 
-// Used to time the processBook function call
-func timeTrack(start time.Time) {
-	elapsed := time.Since(start)
-	fmt.Printf("\n%s to retrieve data\n", elapsed)
+func processTrades() (bitfinex.Trades, time.Duration, error) {
+	start := time.Now()
+	trades, err := apiPublic.Trades("ltcusd", 5)
+	return trades, time.Since(start), err
+}
+
+// Print results
+func printResults(book bitfinex.Book, bTime time.Duration, bErr error, trades bitfinex.Trades, tTime time.Duration, tErr error) {
+	if bErr != nil {
+		fmt.Println(bErr)
+	} else {
+		fmt.Println("----------------------------")
+		fmt.Printf("%-10s%-10s%8s\n", " Bid", "  Ask", "Size ")
+		fmt.Println("----------------------------")
+		for i := range book.Asks {
+			item := book.Asks[len(book.Asks)-1-i]
+			fmt.Printf("%-10s%-10.4f%8.2f\n", "", item.Price, item.Amount)
+		}
+		for _, item := range book.Bids {
+			fmt.Printf("%-10.4f%-10.2s%8.2f\n", item.Price, "", item.Amount)
+		}
+		fmt.Println("----------------------------")
+	}
+	if tErr != nil {
+		fmt.Println(tErr)
+	} else {
+		fmt.Println("\nLast Trades:")
+		for _, trade := range trades {
+			fmt.Printf("%-6.4f - size: %6.2f\n", trade.Price, trade.Amount)
+		}
+		fmt.Printf("\n%v to get book data\n", bTime)
+		fmt.Printf("%v to get trade data\n", tTime)
+	}
 }
 
 // Clear the terminal between prints
@@ -44,17 +71,4 @@ func clearScreen() {
 	c := exec.Command("clear")
 	c.Stdout = os.Stdout
 	c.Run()
-}
-
-// Print the book data
-func printBook(book bitfinex.Book) {
-	fmt.Printf("%-10s%-10s\n", " Bid", " Ask")
-	fmt.Println("--------------------------")
-	for i := range book.Asks {
-		item := book.Asks[len(book.Asks)-1-i]
-		fmt.Printf("%-10s%-10.2f%6.2f\n", "", item.Price, item.Amount)
-	}
-	for _, item := range book.Bids {
-		fmt.Printf("%-10.2f%-10.2s%6.2f\n", item.Price, "", item.Amount)
-	}
 }
