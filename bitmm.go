@@ -27,7 +27,7 @@ func main() {
 // Get and print order book data
 func processBook() {
 	defer timeTrack(time.Now())
-	book, err := apiPublic.Orderbook("ltcusd", 10, 10)
+	book, err := apiPublic.Orderbook("btcusd", 10, 10)
 	if err != nil {
 		log.Fatal(err)
 	}

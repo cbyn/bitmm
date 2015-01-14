@@ -81,6 +81,19 @@ type Order struct {
 // Slice of orders
 type Orders []Order
 
+// Inputs for submitting an order
+type OrderInput struct {
+	URL      string  `json:"request"`
+	Nonce    string  `json:"nonce"`
+	Symbol   string  `json:"symbol"`
+	Amount   float64 `json:"amount,string"`
+	Price    float64 `json:"price,string"`
+	Exchange string  `json:"exchange"`
+	Side     string  `json:"side"`
+	Type     string  `json:"type"`
+	// Hidden   bool    `json:"is_hidden,bool"`
+}
+
 // Return a new Bitfinex API instance
 func New(key, secret string) (api *API) {
 	api = &API{
@@ -151,6 +164,10 @@ func (api *API) NewOrder(symbol string, amount, price float64, exchange, side, o
 	}
 
 	return api.postOrder(request.URL, request)
+}
+
+func (api *API) MultipleNewOrders() {
+
 }
 
 // Cancel existing order on the exchange
@@ -242,7 +259,7 @@ func (api *API) postOrder(url string, request interface{}) (Order, error) {
 			return order, err
 		}
 
-		return order, errors.New("API: " + errorMessage.Message)
+		return order, errors.New(errorMessage.Message)
 	}
 
 	return order, nil
@@ -265,7 +282,7 @@ func (api *API) postOrders(url string, request interface{}) (Orders, error) {
 			return orders, err
 		}
 
-		return orders, errors.New("API: " + errorMessage.Message)
+		return orders, errors.New(errorMessage.Message)
 	}
 
 	return orders, nil
