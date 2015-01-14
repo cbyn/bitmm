@@ -163,7 +163,6 @@ func TestNewOrder(t *testing.T) {
 }
 
 func TestMultipleNewOrders(t *testing.T) {
-	t.Skip()
 	// Get a current price to use for trade
 	trades, err := apiPublic.Trades("ltcusd", 1)
 	if err != nil {
@@ -188,5 +187,10 @@ func TestMultipleNewOrders(t *testing.T) {
 
 	// Test multi update
 
-	// Test cancel all
+	// Test cancelling all active orders
+	err = apiPrivate.CancelAll()
+	if err != nil {
+		t.Error("Failed: " + err.Error())
+	}
+	t.Logf("Cancelled all active orders")
 }

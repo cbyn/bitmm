@@ -16,36 +16,38 @@ import (
 	"time"
 )
 
+// Bitfinex API URL
 const (
-	APIURL = "https://api.bitfinex.com/" // Bitfinex API URL
+	APIURL = "https://api.bitfinex.com/"
 )
 
-// Stores Bitfinex API credentials
+// API : stores Bitfinex credentials
 type API struct {
 	APIKey    string
 	APISecret string
 }
 
-// Error from exchange
+// ErrorMessage : error message from exchange
 type ErrorMessage struct {
-	Message string `json:"message"` // Returned only on error
+	Message string `json:"message"`
 }
 
-// Order book data from the exchange
+// Book : orderbook data from the exchange
 type Book struct {
 	Bids []BookItems // Slice of bid data items
 	Asks []BookItems // Slice of ask data items
 }
 
-// TODO: why is timestamp a float?
-// Inner order book data from the exchange
+// TODO : why is timestamp a float?
+
+// BookItems : inner orderbook data from the exchange
 type BookItems struct {
 	Price     float64 `json:"price,string"`     // Order price
 	Amount    float64 `json:"amount,string"`    // Order volume
 	Timestamp float64 `json:"timestamp,string"` // Exchange timestamp
 }
 
-// Trade data from the exchange
+// Trade : executed trade data from the exchange
 type Trade struct {
 	Timestamp int     `json:"timestamp"`     // Exchange timestamp
 	TID       int     `json:"tid"`           // Trade ID
@@ -55,11 +57,12 @@ type Trade struct {
 	Type      string  `json:"type"`          // Type, if it can be determined
 }
 
-// Slice of trades
+// Trades : slice of trades
 type Trades []Trade
 
-// TODO: why is timestamp a float?
-// Order data to/from the exchange
+// TODO : why is timestamp a float?
+
+// Order : order data to/from the exchange
 type Order struct {
 	ID              int     `json:"id"`                         // Order ID
 	Symbol          string  `json:"symbol"`                     // The symbol name the order belongs to
@@ -77,11 +80,12 @@ type Order struct {
 	OriginalAmount  float64 `json:"original_amount,string"`     // What was the order originally submitted for?
 }
 
+// Orders : used in processing multiple orders
 type Orders struct {
 	Orders []Order `json:"order_ids"`
 }
 
-// Inputs for submitting an order
+// OrderParams : inputs for submitting an order
 type OrderParams struct {
 	Symbol   string  `json:"symbol"`
 	Amount   float64 `json:"amount,string"`
@@ -91,7 +95,7 @@ type OrderParams struct {
 	Type     string  `json:"type"`
 }
 
-// Return a new Bitfinex API instance
+// New : returns a new Bitfinex API instance
 func New(key, secret string) (api *API) {
 	api = &API{
 		APIKey:    key,
@@ -100,7 +104,7 @@ func New(key, secret string) (api *API) {
 	return api
 }
 
-// Get trade data from the exchange
+// Trades : get trade data from the exchange
 func (api *API) Trades(symbol string, limitTrades int) (Trades, error) {
 	var trades Trades
 
@@ -118,7 +122,7 @@ func (api *API) Trades(symbol string, limitTrades int) (Trades, error) {
 	return trades, nil
 }
 
-// Get orderbook data from the exchange
+// Orderbook : get orderbook data from the exchange
 func (api *API) Orderbook(symbol string, limitBids, limitAsks int) (Book, error) {
 	var book Book
 
@@ -136,7 +140,7 @@ func (api *API) Orderbook(symbol string, limitBids, limitAsks int) (Book, error)
 	return book, nil
 }
 
-// Post new order to the exchange
+// NewOrder : post new order to the exchange
 func (api *API) NewOrder(symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
 	request := struct {
 		URL      string  `json:"request"`
@@ -161,6 +165,7 @@ func (api *API) NewOrder(symbol string, amount, price float64, exchange, side, o
 	return api.postOrder(request.URL, request)
 }
 
+// MultipleNewOrders : post multiple new orders to the exchange
 func (api *API) MultipleNewOrders(params []OrderParams) (Orders, error) {
 	request := struct {
 		URL    string        `json:"request"`
@@ -175,7 +180,7 @@ func (api *API) MultipleNewOrders(params []OrderParams) (Orders, error) {
 	return api.postMultiOrder(request.URL, request)
 }
 
-// Cancel existing order on the exchange
+// CancelOrder : cancel existing order on the exchange
 func (api *API) CancelOrder(id int) (Order, error) {
 	request := struct {
 		URL     string `json:"request"`
@@ -190,7 +195,32 @@ func (api *API) CancelOrder(id int) (Order, error) {
 	return api.postOrder(request.URL, request)
 }
 
-// Replace existing order on the exchange
+// CancelAll : cancel all active orders
+func (api *API) CancelAll() error {
+	request := struct {
+		URL   string `json:"request"`
+		Nonce string `json:"nonce"`
+	}{
+		"/v1/order/cancel/all",
+		strconv.FormatInt(time.Now().UnixNano(), 10),
+	}
+
+	data, err := api.post(request.URL, request)
+	fmt.Println(string(data))
+
+	if err != nil {
+		errorMessage := ErrorMessage{}
+		err = json.Unmarshal(data, &errorMessage)
+		if err != nil {
+			return err
+		}
+		return errors.New(errorMessage.Message)
+	}
+
+	return nil
+}
+
+// ReplaceOrder : replace existing order on the exchange
 func (api *API) ReplaceOrder(id int, symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
 	request := struct {
 		URL      string  `json:"request"`
@@ -217,7 +247,7 @@ func (api *API) ReplaceOrder(id int, symbol string, amount, price float64, excha
 	return api.postOrder(request.URL, request)
 }
 
-// Get order status
+// OrderStatus : get order status
 func (api *API) OrderStatus(id int) (Order, error) {
 	request := struct {
 		URL     string `json:"request"`
@@ -232,7 +262,7 @@ func (api *API) OrderStatus(id int) (Order, error) {
 	return api.postOrder(request.URL, request)
 }
 
-// Post order info, used in order-related API methods
+// postOrder : used in order-related API methods
 func (api *API) postOrder(url string, request interface{}) (Order, error) {
 	var order Order
 
@@ -255,7 +285,7 @@ func (api *API) postOrder(url string, request interface{}) (Order, error) {
 	return order, nil
 }
 
-// Post multi-order info, used in multi order-related API methods
+// postMultiOrder : used in multi order-related API methods
 func (api *API) postMultiOrder(url string, request interface{}) (Orders, error) {
 	var orders Orders
 
@@ -278,7 +308,7 @@ func (api *API) postMultiOrder(url string, request interface{}) (Orders, error) 
 	return orders, nil
 }
 
-// API unauthenticated GET
+// get : API unauthenticated GET
 func (api *API) get(url string) ([]byte, error) {
 	resp, err := http.Get(APIURL + url)
 	if err != nil {
@@ -289,7 +319,7 @@ func (api *API) get(url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-// API authenticated POST
+// post : API authenticated POST
 func (api *API) post(url string, payload interface{}) ([]byte, error) {
 	// Payload = parameters-dictionary -> JSON encode -> base64
 	payloadJSON, err := json.Marshal(payload)
