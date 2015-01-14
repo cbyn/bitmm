@@ -12,10 +12,8 @@ import (
 )
 
 var (
-	APIKey     = os.Getenv("BITFINEX_KEY")
-	APISecret  = os.Getenv("BITFINEX_SECRET")
 	apiPublic  = bitfinex.New("", "")
-	apiPrivate = bitfinex.New(APIKey, APISecret)
+	apiPrivate = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
 )
 
 func main() {

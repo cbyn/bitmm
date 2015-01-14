@@ -95,6 +95,11 @@ type OrderParams struct {
 	Type     string  `json:"type"`
 }
 
+// Cancellation : response from CancelAll
+type Cancellation struct {
+	Result string `json:"result"`
+}
+
 // New : returns a new Bitfinex API instance
 func New(key, secret string) (api *API) {
 	api = &API{
@@ -196,7 +201,7 @@ func (api *API) CancelOrder(id int) (Order, error) {
 }
 
 // CancelAll : cancel all active orders
-func (api *API) CancelAll() error {
+func (api *API) CancelAll() (bool, error) {
 	request := struct {
 		URL   string `json:"request"`
 		Nonce string `json:"nonce"`
@@ -206,18 +211,21 @@ func (api *API) CancelAll() error {
 	}
 
 	data, err := api.post(request.URL, request)
-	fmt.Println(string(data))
 
+	var cancel Cancellation
+
+	err = json.Unmarshal(data, &cancel)
 	if err != nil {
-		errorMessage := ErrorMessage{}
+		var errorMessage ErrorMessage
 		err = json.Unmarshal(data, &errorMessage)
 		if err != nil {
-			return err
+			return false, err
 		}
-		return errors.New(errorMessage.Message)
+		return false, errors.New(errorMessage.Message)
 	}
 
-	return nil
+	success := cancel.Result == "All orders cancelled"
+	return success, nil
 }
 
 // ReplaceOrder : replace existing order on the exchange
@@ -273,7 +281,7 @@ func (api *API) postOrder(url string, request interface{}) (Order, error) {
 
 	err = json.Unmarshal(data, &order)
 	if err != nil {
-		errorMessage := ErrorMessage{}
+		var errorMessage ErrorMessage
 		err = json.Unmarshal(data, &errorMessage)
 		if err != nil {
 			return order, err
@@ -296,7 +304,7 @@ func (api *API) postMultiOrder(url string, request interface{}) (Orders, error) 
 
 	err = json.Unmarshal(data, &orders)
 	if err != nil {
-		errorMessage := ErrorMessage{}
+		var errorMessage ErrorMessage
 		err = json.Unmarshal(data, &errorMessage)
 		if err != nil {
 			return orders, err

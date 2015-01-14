@@ -8,10 +8,8 @@ import (
 )
 
 var (
-	APIKey     = os.Getenv("BITFINEX_KEY")
-	APISecret  = os.Getenv("BITFINEX_SECRET")
 	apiPublic  = New("", "")
-	apiPrivate = New(APIKey, APISecret)
+	apiPrivate = New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
 )
 
 func TestTrades(t *testing.T) {
@@ -184,12 +182,14 @@ func TestMultipleNewOrders(t *testing.T) {
 		t.Error("Failed: " + err.Error())
 		return
 	}
+	t.Logf("Placed a new buy order of 0.1 ltcusd @ %v limit with ID: %d", bidPrice, orders.Orders[0].ID)
+	t.Logf("Placed a new sell order of 0.1 ltcusd @ %v limit with ID: %d", askPrice, orders.Orders[1].ID)
 
 	// Test multi update
 
 	// Test cancelling all active orders
-	err = apiPrivate.CancelAll()
-	if err != nil {
+	success, err := apiPrivate.CancelAll()
+	if err != nil || !success {
 		t.Error("Failed: " + err.Error())
 	}
 	t.Logf("Cancelled all active orders")
