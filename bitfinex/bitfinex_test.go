@@ -17,7 +17,7 @@ var (
 func TestTrades(t *testing.T) {
 	// Test good request
 	trades, err := apiPublic.Trades("ltcusd", 10)
-	if err != nil {
+	if err != nil || trades == nil {
 		t.Error("Failed: " + err.Error())
 		return
 	}
@@ -59,7 +59,6 @@ func TestNewOrder(t *testing.T) {
 	}
 	// Set a safe sell price above the current price
 	price := trades[0].Price + 0.20
-	// Other inputs to NewOrder
 	symbol := "ltcusd"
 	amount := 0.1
 	exchange := "bitfinex"
@@ -69,7 +68,7 @@ func TestNewOrder(t *testing.T) {
 	// Test submitting a new order
 	order, err := apiPrivate.NewOrder(symbol, amount, price, exchange, side, otype)
 	if err != nil || order.ID == 0 {
-		t.Error("Failed: " + err.Error())
+		t.Error("Failed : " + err.Error())
 		return
 	}
 	t.Logf("Placed a new sell order of 0.1 ltcusd @ %v limit with ID: %d", price, order.ID)
@@ -98,6 +97,18 @@ func TestNewOrder(t *testing.T) {
 		return
 	}
 
+	// Test status
+	order, err = apiPrivate.OrderStatus(order.ID)
+	if err != nil {
+		t.Error("Failed: " + err.Error())
+		return
+	}
+	if !order.IsLive {
+		t.Error("Failed: new order should still be live")
+		return
+	}
+	t.Logf("Order is confirmed live")
+
 	// Test replacing the active order
 	price += 0.1
 	order, err = apiPrivate.ReplaceOrder(order.ID, symbol, amount, price, exchange, side, otype)
@@ -111,12 +122,25 @@ func TestNewOrder(t *testing.T) {
 	}
 	t.Logf("Increased price by 0.1")
 
-	// Test cancelling the order
-	_, err = apiPrivate.CancelOrder(order.ID)
+	// Test status
+	order, err = apiPrivate.OrderStatus(order.ID)
 	if err != nil {
 		t.Error("Failed: " + err.Error())
 		return
 	}
+	if !order.IsLive {
+		t.Error("Failed: replaced order should still be live")
+		return
+	}
+	t.Logf("Order is confirmed live")
+
+	// Test cancelling the order
+	order, err = apiPrivate.CancelOrder(order.ID)
+	if err != nil {
+		t.Error("Failed: " + err.Error())
+		return
+	}
+	t.Logf("Cancelled order")
 
 	// Test status
 	order, err = apiPrivate.OrderStatus(order.ID)
@@ -128,7 +152,7 @@ func TestNewOrder(t *testing.T) {
 		t.Error("Failed: ORDER NOT CANCELLED!")
 		return
 	}
-	t.Logf("Cancelled order")
+	t.Logf("Cancellation is confirmed")
 
 	// Test submitting a bad order
 	order, err = apiPrivate.NewOrder("badsymbol", 0.1, 300, "bitfinex", "sell", "limit")
@@ -139,6 +163,7 @@ func TestNewOrder(t *testing.T) {
 }
 
 func TestMultipleNewOrders(t *testing.T) {
+	t.Skip()
 	// Get a current price to use for trade
 	trades, err := apiPublic.Trades("ltcusd", 1)
 	if err != nil {
@@ -155,8 +180,8 @@ func TestMultipleNewOrders(t *testing.T) {
 	}
 
 	// Test submitting a new multiple order
-	orders, _ := apiPrivate.MultipleNewOrders(params)
-	if err != nil || orders.Orders[0].AltID == 0 || orders.Orders[1].AltID == 0 {
+	orders, err := apiPrivate.MultipleNewOrders(params)
+	if err != nil || orders.Orders[0].ID == 0 || orders.Orders[1].ID == 0 {
 		t.Error("Failed: " + err.Error())
 		return
 	}

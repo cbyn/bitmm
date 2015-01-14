@@ -37,7 +37,7 @@ type Book struct {
 	Asks []BookItems // Slice of ask data items
 }
 
-// TODO: why is timestamp sometimes an int and sometimes a float?
+// TODO: why is timestamp a float?
 // Inner order book data from the exchange
 type BookItems struct {
 	Price     float64 `json:"price,string"`     // Order price
@@ -45,7 +45,6 @@ type BookItems struct {
 	Timestamp float64 `json:"timestamp,string"` // Exchange timestamp
 }
 
-// TODO: why is timestamp sometimes an int and sometimes a float?
 // Trade data from the exchange
 type Trade struct {
 	Timestamp int     `json:"timestamp"`     // Exchange timestamp
@@ -59,11 +58,10 @@ type Trade struct {
 // Slice of trades
 type Trades []Trade
 
-// TODO: why is timestamp sometimes an int and sometimes a float?
+// TODO: why is timestamp a float?
 // Order data to/from the exchange
 type Order struct {
-	ID              int     `json:"order_id"`                   // Order ID
-	AltID           int     `json:"id"`                         // Sometimes called just "id"!
+	ID              int     `json:"id"`                         // Order ID
 	Symbol          string  `json:"symbol"`                     // The symbol name the order belongs to
 	Exchange        string  `json:"exchange"`                   // Exchange name "bitfinex"
 	Price           float64 `json:"price,string"`               // The price the order was issued at (can be null for market orders)
