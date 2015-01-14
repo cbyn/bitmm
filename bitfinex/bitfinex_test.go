@@ -1,7 +1,6 @@
 package bitfinex
 
 import (
-	// "github.com/davecgh/go-spew/spew"
 	"math"
 	"os"
 	"testing"
@@ -184,8 +183,6 @@ func TestMultipleNewOrders(t *testing.T) {
 	}
 	t.Logf("Placed a new buy order of 0.1 ltcusd @ %v limit with ID: %d", bidPrice, orders.Orders[0].ID)
 	t.Logf("Placed a new sell order of 0.1 ltcusd @ %v limit with ID: %d", askPrice, orders.Orders[1].ID)
-
-	// Test multi update
 
 	// Test cancelling all active orders
 	success, err := apiPrivate.CancelAll()
