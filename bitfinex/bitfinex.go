@@ -101,8 +101,8 @@ type Cancellation struct {
 }
 
 // New : returns a new Bitfinex API instance
-func New(key, secret string) (api *API) {
-	api = &API{
+func New(key, secret string) (api API) {
+	api = API{
 		APIKey:    key,
 		APISecret: secret,
 	}
@@ -110,7 +110,7 @@ func New(key, secret string) (api *API) {
 }
 
 // Trades : get trade data from the exchange
-func (api *API) Trades(symbol string, limitTrades int) (Trades, error) {
+func (api API) Trades(symbol string, limitTrades int) (Trades, error) {
 	var trades Trades
 
 	url := fmt.Sprintf("/v1/trades/%s?limit_trades=%d", symbol, limitTrades)
@@ -128,7 +128,7 @@ func (api *API) Trades(symbol string, limitTrades int) (Trades, error) {
 }
 
 // Orderbook : get orderbook data from the exchange
-func (api *API) Orderbook(symbol string, limitBids, limitAsks int) (Book, error) {
+func (api API) Orderbook(symbol string, limitBids, limitAsks int) (Book, error) {
 	var book Book
 
 	url := fmt.Sprintf("/v1/book/%s?limit_bids=%d&limit_asks=%d", symbol, limitBids, limitAsks)
@@ -146,7 +146,7 @@ func (api *API) Orderbook(symbol string, limitBids, limitAsks int) (Book, error)
 }
 
 // NewOrder : post new order to the exchange
-func (api *API) NewOrder(symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
+func (api API) NewOrder(symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
 	request := struct {
 		URL      string  `json:"request"`
 		Nonce    string  `json:"nonce"`
@@ -171,7 +171,7 @@ func (api *API) NewOrder(symbol string, amount, price float64, exchange, side, o
 }
 
 // MultipleNewOrders : post multiple new orders to the exchange
-func (api *API) MultipleNewOrders(params []OrderParams) (Orders, error) {
+func (api API) MultipleNewOrders(params []OrderParams) (Orders, error) {
 	request := struct {
 		URL    string        `json:"request"`
 		Nonce  string        `json:"nonce"`
@@ -186,7 +186,7 @@ func (api *API) MultipleNewOrders(params []OrderParams) (Orders, error) {
 }
 
 // CancelOrder : cancel existing order on the exchange
-func (api *API) CancelOrder(id int) (Order, error) {
+func (api API) CancelOrder(id int) (Order, error) {
 	request := struct {
 		URL     string `json:"request"`
 		Nonce   string `json:"nonce"`
@@ -201,7 +201,7 @@ func (api *API) CancelOrder(id int) (Order, error) {
 }
 
 // CancelAll : cancel all active orders
-func (api *API) CancelAll() (bool, error) {
+func (api API) CancelAll() (bool, error) {
 	request := struct {
 		URL   string `json:"request"`
 		Nonce string `json:"nonce"`
@@ -229,7 +229,7 @@ func (api *API) CancelAll() (bool, error) {
 }
 
 // ReplaceOrder : replace existing order on the exchange
-func (api *API) ReplaceOrder(id int, symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
+func (api API) ReplaceOrder(id int, symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
 	request := struct {
 		URL      string  `json:"request"`
 		Nonce    string  `json:"nonce"`
@@ -256,7 +256,7 @@ func (api *API) ReplaceOrder(id int, symbol string, amount, price float64, excha
 }
 
 // OrderStatus : get order status
-func (api *API) OrderStatus(id int) (Order, error) {
+func (api API) OrderStatus(id int) (Order, error) {
 	request := struct {
 		URL     string `json:"request"`
 		Nonce   string `json:"nonce"`
@@ -271,7 +271,7 @@ func (api *API) OrderStatus(id int) (Order, error) {
 }
 
 // postOrder : used in order-related API methods
-func (api *API) postOrder(url string, request interface{}) (Order, error) {
+func (api API) postOrder(url string, request interface{}) (Order, error) {
 	var order Order
 
 	data, err := api.post(url, request)
@@ -294,7 +294,7 @@ func (api *API) postOrder(url string, request interface{}) (Order, error) {
 }
 
 // postMultiOrder : used in multi order-related API methods
-func (api *API) postMultiOrder(url string, request interface{}) (Orders, error) {
+func (api API) postMultiOrder(url string, request interface{}) (Orders, error) {
 	var orders Orders
 
 	data, err := api.post(url, request)
@@ -317,7 +317,7 @@ func (api *API) postMultiOrder(url string, request interface{}) (Orders, error) 
 }
 
 // get : API unauthenticated GET
-func (api *API) get(url string) ([]byte, error) {
+func (api API) get(url string) ([]byte, error) {
 	resp, err := http.Get(APIURL + url)
 	if err != nil {
 		return []byte{}, err
@@ -328,7 +328,7 @@ func (api *API) get(url string) ([]byte, error) {
 }
 
 // post : API authenticated POST
-func (api *API) post(url string, payload interface{}) ([]byte, error) {
+func (api API) post(url string, payload interface{}) ([]byte, error) {
 	// Payload = parameters-dictionary -> JSON encode -> base64
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {

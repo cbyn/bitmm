@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	apiPublic = bitfinex.New("", "")
+	api = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
 )
 
 func main() {
@@ -33,14 +33,14 @@ func main() {
 }
 
 // Get book data and send to channel
-func processBook(bookChan chan bitfinex.Book) {
-	book, _ := apiPublic.Orderbook("btcusd", 5, 5)
+func processBook(bookChan chan<- bitfinex.Book) {
+	book, _ := api.Orderbook("btcusd", 5, 5)
 	bookChan <- book
 }
 
 // Get trade data and send to channel
-func processTrades(tradesChan chan bitfinex.Trades) {
-	trades, _ := apiPublic.Trades("btcusd", 5)
+func processTrades(tradesChan chan<- bitfinex.Trades) {
+	trades, _ := api.Trades("btcusd", 10)
 	tradesChan <- trades
 }
 
