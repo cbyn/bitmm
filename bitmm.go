@@ -1,11 +1,9 @@
-// TODO: quit on terminal input
-// TODO: make price a volume wieghted moving average
-
 package main
 
 import (
 	"./bitfinex"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math"
 	"os"
@@ -18,9 +16,9 @@ const (
 	SYMBOL    = "ltcusd" // Instrument to trade
 	MINCHANGE = 0.0005   // Minumum change required to update prices
 	TRADENUM  = 10       // Number of trades to use in calculations
-	AMOUNT    = 0.10     // Size to trade
-	BIDEDGE   = 0.01     // Required edge for a buy order
-	ASKEDGE   = 0.01     // Required edge for a sell order
+	AMOUNT    = 0.50     // Size to trade
+	BIDEDGE   = 0.05     // Required edge for a buy order
+	ASKEDGE   = 0.05     // Required edge for a sell order
 )
 
 var (
@@ -67,6 +65,16 @@ func main() {
 
 		// Print processing time
 		fmt.Printf("\n%v processing time...", time.Since(start))
+
+		// TODO: Exit if anything entered by user
+		// fmt.Scan()
+		// io.ReadFull(os.Stdin, buf)
+		// bufio.NewReader(os.Stdin) -> Read(), Peek(), Buffered()
+		// ioutil.ReadAll(os.Stdin)
+		if bytes, err := ioutil.ReadAll(os.Stdin); len(bytes) > 0 || err != nil {
+			cancelAll()
+			break
+		}
 	}
 }
 
