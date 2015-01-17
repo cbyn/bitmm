@@ -3,7 +3,6 @@ package main
 import (
 	"./bitfinex"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math"
 	"os"
@@ -26,16 +25,20 @@ var (
 )
 
 func main() {
-	fmt.Println("\nStarting up...")
+	fmt.Println("\nConnecting...")
 
-	// Create channels for exchange communication
+	// Create channels
 	bookChan := make(chan bitfinex.Book)
 	tradesChan := make(chan bitfinex.Trades)
 	bidChan := make(chan bitfinex.Order)
 	askChan := make(chan bitfinex.Order)
+	inputChan := make(chan rune)
 
 	// Initial orders
 	bid, ask := createOrders()
+
+	// Check for input to break loop
+	go checkStdin(inputChan)
 
 	var (
 		trades bitfinex.Trades
@@ -44,6 +47,7 @@ func main() {
 		theo   float64
 	)
 
+loop:
 	for {
 		start = time.Now()
 
@@ -66,14 +70,12 @@ func main() {
 		// Print processing time
 		fmt.Printf("\n%v processing time...", time.Since(start))
 
-		// TODO: Exit if anything entered by user
-		// fmt.Scan()
-		// io.ReadFull(os.Stdin, buf)
-		// bufio.NewReader(os.Stdin) -> Read(), Peek(), Buffered()
-		// ioutil.ReadAll(os.Stdin)
-		if bytes, err := ioutil.ReadAll(os.Stdin); len(bytes) > 0 || err != nil {
+		// Exit if anything entered by user
+		select {
+		case <-inputChan:
 			cancelAll()
-			break
+			break loop
+		default:
 		}
 	}
 }
@@ -96,6 +98,12 @@ func createOrders() (bitfinex.Order, bitfinex.Order) {
 	checkErr(err)
 
 	return orders.Orders[0], orders.Orders[1]
+}
+
+func checkStdin(inputChan chan rune) {
+	var ch rune
+	fmt.Scanf("%c", &ch)
+	inputChan <- ch
 }
 
 // Get book data and send to channel
