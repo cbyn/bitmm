@@ -1,7 +1,7 @@
 package main
 
 import (
-	"./bitfinex"
+	"bitmm/bitfinex"
 	"fmt"
 	"log"
 	"math"
@@ -16,8 +16,8 @@ const (
 	MINCHANGE = 0.0005   // Minumum change required to update prices
 	TRADENUM  = 10       // Number of trades to use in calculations
 	AMOUNT    = 0.50     // Size to trade
-	BIDEDGE   = 0.05     // Required edge for a buy order
-	ASKEDGE   = 0.05     // Required edge for a sell order
+	BIDEDGE   = 0.02     // Required edge for a buy order
+	ASKEDGE   = 0.02     // Required edge for a sell order
 )
 
 var (
@@ -135,14 +135,18 @@ func calculateTheo(trades bitfinex.Trades) float64 {
 // Modify bid order and send to channel
 func replaceBid(bid bitfinex.Order, bidChan chan<- bitfinex.Order, theo float64) {
 	price := theo - BIDEDGE
-
 	var err error
 	if math.Abs(price-bid.Price) >= MINCHANGE {
-		bid, err = api.ReplaceOrder(bid.ID, SYMBOL, AMOUNT, price, "bitfinex", "buy", "limit")
-		checkErr(err)
-		if bid.ID == 0 {
-			cancelAll()
-			log.Fatal("Failed to replace bid order")
+		count := 0
+		for id := 0; id == 0; id = bid.ID {
+			fmt.Printf("Attempting to replace bid order %d", bid.ID)
+			bid, err = api.ReplaceOrder(bid.ID, SYMBOL, AMOUNT, price, "bitfinex", "buy", "limit")
+			checkErr(err)
+			count++
+			if count >= 5 {
+				cancelAll()
+				log.Fatalf("Could not replace bid order %d", bid.ID)
+			}
 		}
 	}
 
@@ -155,11 +159,16 @@ func replaceAsk(ask bitfinex.Order, askChan chan<- bitfinex.Order, theo float64)
 
 	var err error
 	if math.Abs(price-ask.Price) >= MINCHANGE {
-		ask, err = api.ReplaceOrder(ask.ID, SYMBOL, AMOUNT, price, "bitfinex", "sell", "limit")
-		checkErr(err)
-		if ask.ID == 0 {
-			cancelAll()
-			log.Fatal("Failed to replace ask order")
+		count := 0
+		for id := 0; id == 0; id = ask.ID {
+			fmt.Printf("Attempting to replace ask order %d", ask.ID)
+			ask, err = api.ReplaceOrder(ask.ID, SYMBOL, AMOUNT, price, "bitfinex", "sell", "limit")
+			checkErr(err)
+			count++
+			if count >= 5 {
+				cancelAll()
+				log.Fatalf("Could not replace ask order %d", ask.ID)
+			}
 		}
 	}
 
