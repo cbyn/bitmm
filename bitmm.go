@@ -13,7 +13,7 @@ import (
 // Trade inputs
 const (
 	SYMBOL    = "ltcusd" // Instrument to trade
-	MINCHANGE = 0.0005   // Minumum change required to update prices
+	MINCHANGE = 0.0001   // Minumum change required to update prices
 	TRADENUM  = 10       // Number of trades to use in calculations
 	AMOUNT    = 0.50     // Size to trade
 	BIDEDGE   = 0.02     // Required edge for a buy order
@@ -135,18 +135,12 @@ func calculateTheo(trades bitfinex.Trades) float64 {
 // Modify bid order and send to channel
 func replaceBid(bid bitfinex.Order, bidChan chan<- bitfinex.Order, theo float64) {
 	price := theo - BIDEDGE
-	var err error
+
 	if math.Abs(price-bid.Price) >= MINCHANGE {
-		count := 0
-		for id := 0; id == 0; id = bid.ID {
-			fmt.Printf("Attempting to replace bid order %d", bid.ID)
-			bid, err = api.ReplaceOrder(bid.ID, SYMBOL, AMOUNT, price, "bitfinex", "buy", "limit")
-			checkErr(err)
-			count++
-			if count >= 5 {
-				cancelAll()
-				log.Fatalf("Could not replace bid order %d", bid.ID)
-			}
+		bid2, err := api.ReplaceOrder(bid.ID, SYMBOL, AMOUNT, price, "bitfinex", "buy", "limit")
+		checkErr(err)
+		if bid2.ID != 0 {
+			bid = bid2
 		}
 	}
 
@@ -157,18 +151,11 @@ func replaceBid(bid bitfinex.Order, bidChan chan<- bitfinex.Order, theo float64)
 func replaceAsk(ask bitfinex.Order, askChan chan<- bitfinex.Order, theo float64) {
 	price := theo + ASKEDGE
 
-	var err error
 	if math.Abs(price-ask.Price) >= MINCHANGE {
-		count := 0
-		for id := 0; id == 0; id = ask.ID {
-			fmt.Printf("Attempting to replace ask order %d", ask.ID)
-			ask, err = api.ReplaceOrder(ask.ID, SYMBOL, AMOUNT, price, "bitfinex", "sell", "limit")
-			checkErr(err)
-			count++
-			if count >= 5 {
-				cancelAll()
-				log.Fatalf("Could not replace ask order %d", ask.ID)
-			}
+		ask2, err := api.ReplaceOrder(ask.ID, SYMBOL, AMOUNT, price, "bitfinex", "sell", "limit")
+		checkErr(err)
+		if ask2.ID != 0 {
+			ask = ask2
 		}
 	}
 
