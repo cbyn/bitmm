@@ -71,7 +71,7 @@ type Order struct {
 	ExecutionPrice  float64 `json:"avg_execution_price,string"` // The average price at which this order as been executed so far. 0 if the order has not been executed at all
 	Side            string  `json:"side"`                       // Either "buy" or "sell"
 	Type            string  `json:"type"`                       // Either "market" / "limit" / "stop" / "trailing-stop"
-	Timestamp       float64 `json:"timestamp,string"`           // The timestamp the order was submitted
+	Timestamp       float64 `json:"timestamp,string"`           // The time the order was submitted
 	IsLive          bool    `json:"is_live,bool"`               // Could the order still be filled?
 	IsCancelled     bool    `json:"is_cancelled,bool"`          // Has the order been cancelled?
 	WasForced       bool    `json:"was_forced,bool"`            // For margin onlytrue if it was forced by the system
@@ -99,6 +99,21 @@ type OrderParams struct {
 type Cancellation struct {
 	Result string `json:"result"`
 }
+
+// Position from exchange
+type Position struct {
+	ID        int     `json:"id"`               // Position ID
+	Symbol    string  `json:"symbol"`           // The symbol for the contract
+	Status    string  `json:"status"`           // Status of position
+	Base      float64 `json:"base,string"`      // The initiation price
+	Amount    float64 `json:"amount,string"`    // Position size
+	Timestamp float64 `json:"timestamp,string"` // The time the position was initiated?
+	Swap      float64 `json:"swap,string"`      // ?
+	PL        float64 `json:"pl,string"`        // Current PL
+}
+
+// Positions returned by ActivePositions call
+type Positions []Position
 
 // New returns a new Bitfinex API instance
 func New(key, secret string) Bitfinex {
@@ -265,6 +280,39 @@ func (bitfinex Bitfinex) OrderStatus(id int) (Order, error) {
 
 	return bitfinex.postOrder(request.URL, request)
 }
+
+// ActivePositions returns active positions from the exchange
+func (bitfinex Bitfinex) ActivePositions() (Positions, error) {
+	request := struct {
+		URL   string `json:"request"`
+		Nonce string `json:"nonce"`
+	}{
+		"/v1/positions",
+		strconv.FormatInt(time.Now().UnixNano(), 10),
+	}
+
+	var positions Positions
+
+	data, err := bitfinex.post(request.URL, request)
+	if err != nil {
+		return positions, err
+	}
+
+	err = json.Unmarshal(data, &positions)
+	if err != nil {
+		var errorMessage ErrorMessage
+		err = json.Unmarshal(data, &errorMessage)
+		if err != nil {
+			return positions, err
+		}
+
+		return positions, errors.New(errorMessage.Message)
+	}
+
+	return positions, nil
+}
+
+// TODO: ActiveOrders
 
 // postOrder used in order-related API methods
 func (bitfinex Bitfinex) postOrder(url string, request interface{}) (Order, error) {

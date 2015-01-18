@@ -1,6 +1,7 @@
 package bitfinex
 
 import (
+	// "github.com/davecgh/go-spew/spew"
 	"math"
 	"os"
 	"testing"
@@ -164,4 +165,11 @@ func TestMultipleNewOrders(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("Cancelled all active orders")
+}
+
+func TestActivePositions(t *testing.T) {
+	_, err := api.ActivePositions()
+	if err != nil {
+		t.Fatal(err)
+	}
 }
