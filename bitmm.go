@@ -89,8 +89,8 @@ func createOrders() (bitfinex.Order, bitfinex.Order) {
 
 	// Order parameters
 	params := []bitfinex.OrderParams{
-		{SYMBOL, AMOUNT, price - BIDEDGE, "bitfinex", "buy", "limit"},
-		{SYMBOL, AMOUNT, price + ASKEDGE, "bitfinex", "sell", "limit"},
+		{SYMBOL, AMOUNT, price - BIDEDGE*5, "bitfinex", "buy", "limit"},
+		{SYMBOL, AMOUNT, price + ASKEDGE*5, "bitfinex", "sell", "limit"},
 	}
 
 	// Send new order request to the exchange
