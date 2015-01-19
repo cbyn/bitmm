@@ -1,13 +1,8 @@
-// TODO:
-// Handle errors without quitting
-
 package main
 
 import (
 	"bitmm/bitfinex"
 	"fmt"
-	// "github.com/davecgh/go-spew/spew"
-	"log"
 	"math"
 	"os"
 	"os/exec"
@@ -24,7 +19,11 @@ const (
 	ASKEDGE   = 0.01     // Required edge for a sell order
 )
 
-var api = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
+var (
+	api        = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
+	apiErrors  = false
+	liveOrders = false
+)
 
 func main() {
 	fmt.Println("\nInitializing...")
@@ -86,7 +85,10 @@ func runMainLoop(inputChan <-chan rune) {
 		// Print results when book and order data returns
 		book = <-bookChan
 		orders = <-ordersChan
-		printResults(book, trades, orders, newTheo, newPosition, start)
+		if !apiErrors {
+			printResults(book, trades, orders, newTheo, newPosition, start)
+		}
+		apiErrors = false
 
 		// Exit if anything entered by user
 		select {
@@ -102,20 +104,22 @@ func runMainLoop(inputChan <-chan rune) {
 func sendOrders(orders bitfinex.Orders, oldTheo, newTheo, oldPosition,
 	newPosition float64, ordersChan chan<- bitfinex.Orders) {
 
-	if math.Abs(oldTheo-newTheo) > MINCHANGE || math.Abs(oldPosition-
-		newPosition) > 0.01 {
+	if (math.Abs(oldTheo-newTheo) > MINCHANGE || math.Abs(oldPosition-
+		newPosition) > 0.01 || !liveOrders) && !apiErrors {
 		// First cancel all orders
-		cancelAll()
+		if liveOrders {
+			cancelAll()
+		}
 
 		var params []bitfinex.OrderParams
 
 		if newPosition+AMOUNT < 0.01 { // Max short postion
-			// One order at value to exit position
+			// One order at theo to exit position
 			params = []bitfinex.OrderParams{
 				{SYMBOL, -newPosition, newTheo, "bitfinex", "buy", "limit"},
 			}
 		} else if newPosition-AMOUNT > -0.01 { // Max long postion
-			// One order at value to exit position
+			// One order at theo to exit position
 			params = []bitfinex.OrderParams{
 				{SYMBOL, newPosition, newTheo, "bitfinex", "sell", "limit"},
 			}
@@ -129,6 +133,7 @@ func sendOrders(orders bitfinex.Orders, oldTheo, newTheo, oldPosition,
 
 		// Send new order request to the exchange
 		orders, err := api.MultipleNewOrders(params)
+		liveOrders = true
 		checkErr(err)
 		ordersChan <- orders
 	} else {
@@ -137,7 +142,7 @@ func sendOrders(orders bitfinex.Orders, oldTheo, newTheo, oldPosition,
 }
 
 func checkPosition() float64 {
-	position := 0.0
+	var position float64
 	posSlice, err := api.ActivePositions()
 	checkErr(err)
 	for _, pos := range posSlice {
@@ -178,8 +183,9 @@ func calculateTheo(trades bitfinex.Trades) float64 {
 // Called on any error
 func checkErr(err error) {
 	if err != nil {
-		exit()
-		log.Fatal(err)
+		cancelAll()
+		apiErrors = true
+		fmt.Println(err)
 	}
 }
 
@@ -195,6 +201,7 @@ func cancelAll() {
 	for !cancelled {
 		cancelled, _ = api.CancelAll()
 	}
+	liveOrders = false
 }
 
 // Print results
