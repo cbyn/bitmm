@@ -1,3 +1,6 @@
+// TODO:
+// Handle errors without quitting
+
 package main
 
 import (
@@ -16,9 +19,9 @@ const (
 	SYMBOL    = "ltcusd" // Instrument to trade
 	MINCHANGE = 0.00005  // Minumum change required to update prices
 	TRADENUM  = 10       // Number of trades to use in calculations
-	AMOUNT    = 0.10     // Size to trade
-	BIDEDGE   = 0.005    // Required edge for a buy order
-	ASKEDGE   = 0.005    // Required edge for a sell order
+	AMOUNT    = 1.00     // Size to trade
+	BIDEDGE   = 0.01     // Required edge for a buy order
+	ASKEDGE   = 0.01     // Required edge for a sell order
 )
 
 var api = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
@@ -47,7 +50,6 @@ func runMainLoop(inputChan <-chan rune) {
 	bookChan := make(chan bitfinex.Book)
 	tradesChan := make(chan bitfinex.Trades)
 	ordersChan := make(chan bitfinex.Orders)
-	positionChan := make(chan float64)
 
 	var (
 		trades      bitfinex.Trades
@@ -58,6 +60,7 @@ func runMainLoop(inputChan <-chan rune) {
 		newPosition float64
 		oldTheo     float64
 		newTheo     float64
+		lastTrade   int
 	)
 
 	for {
@@ -67,14 +70,16 @@ func runMainLoop(inputChan <-chan rune) {
 		// Get data in separate goroutines
 		go processTrades(tradesChan)
 		go processBook(bookChan)
-		go checkPosition(positionChan)
 
-		// Send orders when trades and position data returns
+		// Possibly send orders when trades data returns
 		trades = <-tradesChan
-		newTheo = calculateTheo(trades)
-		newPosition = <-positionChan
+		if trades[0].Timestamp != lastTrade { // If new trades
+			newTheo = calculateTheo(trades)
+			newPosition = checkPosition()
+		}
 		go sendOrders(orders, oldTheo, newTheo, oldPosition, newPosition, ordersChan)
 
+		lastTrade = trades[0].Timestamp
 		oldTheo = newTheo
 		oldPosition = newPosition
 
@@ -131,7 +136,7 @@ func sendOrders(orders bitfinex.Orders, oldTheo, newTheo, oldPosition,
 	}
 }
 
-func checkPosition(positionChan chan<- float64) {
+func checkPosition() float64 {
 	position := 0.0
 	posSlice, err := api.ActivePositions()
 	checkErr(err)
@@ -141,7 +146,7 @@ func checkPosition(positionChan chan<- float64) {
 		}
 	}
 
-	positionChan <- position
+	return position
 }
 
 // Get book data and send to channel
