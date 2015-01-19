@@ -388,6 +388,7 @@ func (bitfinex Bitfinex) post(url string, payload interface{}) ([]byte, error) {
 
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", APIURL+url, nil)
+	req.Close = true
 	if err != nil {
 		return []byte{}, err
 	}
