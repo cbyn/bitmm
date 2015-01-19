@@ -18,7 +18,7 @@ import (
 
 // Bitfinex API URL
 const (
-	APIURL = "https://api.bitfinex.com/"
+	APIURL = "https://api.bitfinex.com"
 )
 
 // Bitfinex stores Bitfinex credentials
@@ -75,6 +75,7 @@ type Order struct {
 	IsLive          bool    `json:"is_live,bool"`               // Could the order still be filled?
 	IsCancelled     bool    `json:"is_cancelled,bool"`          // Has the order been cancelled?
 	WasForced       bool    `json:"was_forced,bool"`            // For margin onlytrue if it was forced by the system
+	Amount          float64 `json:"amount,string"`              // Order amount returned in multi order response
 	ExecutedAmount  float64 `json:"executed_amount,string"`     // How much of the order has been executed so far in its history?
 	RemainingAmount float64 `json:"remaining_amount,string"`    // How much is still remaining to be submitted?
 	OriginalAmount  float64 `json:"original_amount,string"`     // What was the order originally submitted for?

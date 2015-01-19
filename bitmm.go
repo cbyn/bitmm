@@ -3,6 +3,7 @@ package main
 import (
 	"bitmm/bitfinex"
 	"fmt"
+	// "github.com/davecgh/go-spew/spew"
 	"log"
 	"math"
 	"os"
@@ -13,97 +14,134 @@ import (
 // Trade inputs
 const (
 	SYMBOL    = "ltcusd" // Instrument to trade
-	MINCHANGE = 0.0001   // Minumum change required to update prices
+	MINCHANGE = 0.00005  // Minumum change required to update prices
 	TRADENUM  = 10       // Number of trades to use in calculations
-	AMOUNT    = 0.50     // Size to trade
-	BIDEDGE   = 0.02     // Required edge for a buy order
-	ASKEDGE   = 0.02     // Required edge for a sell order
+	AMOUNT    = 0.10     // Size to trade
+	BIDEDGE   = 0.005    // Required edge for a buy order
+	ASKEDGE   = 0.005    // Required edge for a sell order
 )
 
-var (
-	api = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
-)
+var api = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
 
 func main() {
-	fmt.Println("\nConnecting...")
-
-	// Create channels
-	bookChan := make(chan bitfinex.Book)
-	tradesChan := make(chan bitfinex.Trades)
-	bidChan := make(chan bitfinex.Order)
-	askChan := make(chan bitfinex.Order)
-	inputChan := make(chan rune)
-
-	// Initial orders
-	bid, ask := createOrders()
+	fmt.Println("\nInitializing...")
 
 	// Check for input to break loop
+	inputChan := make(chan rune)
 	go checkStdin(inputChan)
 
+	// Run loop until user input is received
+	runMainLoop(inputChan)
+}
+
+// Check for any user input
+func checkStdin(inputChan chan<- rune) {
+	var ch rune
+	fmt.Scanf("%c", &ch)
+	inputChan <- ch
+}
+
+// Infinite loop
+func runMainLoop(inputChan <-chan rune) {
+	// Exchange communication channels
+	bookChan := make(chan bitfinex.Book)
+	tradesChan := make(chan bitfinex.Trades)
+	ordersChan := make(chan bitfinex.Orders)
+	positionChan := make(chan float64)
+
 	var (
-		trades bitfinex.Trades
-		book   bitfinex.Book
-		start  time.Time
-		theo   float64
+		trades      bitfinex.Trades
+		book        bitfinex.Book
+		orders      bitfinex.Orders
+		start       time.Time
+		oldPosition float64
+		newPosition float64
+		oldTheo     float64
+		newTheo     float64
 	)
 
-loop:
 	for {
+		// Record time for each iteration
 		start = time.Now()
 
 		// Get data in separate goroutines
-		go processBook(bookChan)
 		go processTrades(tradesChan)
+		go processBook(bookChan)
+		go checkPosition(positionChan)
 
-		// Modify orders in separate goroutines when trade data returns
+		// Send orders when trades and position data returns
 		trades = <-tradesChan
-		theo = calculateTheo(trades)
-		go replaceBid(bid, bidChan, theo)
-		go replaceAsk(ask, askChan, theo)
+		newTheo = calculateTheo(trades)
+		newPosition = <-positionChan
+		go sendOrders(orders, oldTheo, newTheo, oldPosition, newPosition, ordersChan)
 
-		// Print data and current orders when all communication is finished
-		bid = <-bidChan
-		ask = <-askChan
+		oldTheo = newTheo
+		oldPosition = newPosition
+
+		// Print results when book and order data returns
 		book = <-bookChan
-		printResults(book, trades, bid, ask)
-
-		// Print processing time
-		fmt.Printf("\n%v processing time...", time.Since(start))
+		orders = <-ordersChan
+		printResults(book, trades, orders, newTheo, newPosition, start)
 
 		// Exit if anything entered by user
 		select {
 		case <-inputChan:
-			cancelAll()
-			break loop
+			exit()
+			return
 		default:
 		}
 	}
 }
 
-// Create initial orders
-func createOrders() (bitfinex.Order, bitfinex.Order) {
-	// Get the current price
-	trades, err := api.Trades(SYMBOL, 1)
-	checkErr(err)
-	price := trades[0].Price
+// Send orders to the exchange
+func sendOrders(orders bitfinex.Orders, oldTheo, newTheo, oldPosition,
+	newPosition float64, ordersChan chan<- bitfinex.Orders) {
 
-	// Order parameters
-	params := []bitfinex.OrderParams{
-		{SYMBOL, AMOUNT, price - BIDEDGE*5, "bitfinex", "buy", "limit"},
-		{SYMBOL, AMOUNT, price + ASKEDGE*5, "bitfinex", "sell", "limit"},
+	if math.Abs(oldTheo-newTheo) > MINCHANGE || math.Abs(oldPosition-
+		newPosition) > 0.01 {
+		// First cancel all orders
+		cancelAll()
+
+		var params []bitfinex.OrderParams
+
+		if newPosition+AMOUNT < 0.01 { // Max short postion
+			// One order at value to exit position
+			params = []bitfinex.OrderParams{
+				{SYMBOL, -newPosition, newTheo, "bitfinex", "buy", "limit"},
+			}
+		} else if newPosition-AMOUNT > -0.01 { // Max long postion
+			// One order at value to exit position
+			params = []bitfinex.OrderParams{
+				{SYMBOL, newPosition, newTheo, "bitfinex", "sell", "limit"},
+			}
+		} else {
+			// Two orders for edge
+			params = []bitfinex.OrderParams{
+				{SYMBOL, AMOUNT - newPosition, newTheo - BIDEDGE, "bitfinex", "buy", "limit"},
+				{SYMBOL, AMOUNT + newPosition, newTheo + ASKEDGE, "bitfinex", "sell", "limit"},
+			}
+		}
+
+		// Send new order request to the exchange
+		orders, err := api.MultipleNewOrders(params)
+		checkErr(err)
+		ordersChan <- orders
+	} else {
+		ordersChan <- orders
 	}
-
-	// Send new order request to the exchange
-	orders, err := api.MultipleNewOrders(params)
-	checkErr(err)
-
-	return orders.Orders[0], orders.Orders[1]
 }
 
-func checkStdin(inputChan chan rune) {
-	var ch rune
-	fmt.Scanf("%c", &ch)
-	inputChan <- ch
+func checkPosition(positionChan chan<- float64) {
+	position := 0.0
+	posSlice, err := api.ActivePositions()
+	checkErr(err)
+	for _, pos := range posSlice {
+		if pos.Symbol == SYMBOL {
+			position = pos.Amount
+		}
+	}
+
+	positionChan <- position
 }
 
 // Get book data and send to channel
@@ -132,38 +170,32 @@ func calculateTheo(trades bitfinex.Trades) float64 {
 	return sum1 / sum2
 }
 
-// Modify bid order and send to channel
-func replaceBid(bid bitfinex.Order, bidChan chan<- bitfinex.Order, theo float64) {
-	price := theo - BIDEDGE
-
-	if math.Abs(price-bid.Price) >= MINCHANGE {
-		bid2, err := api.ReplaceOrder(bid.ID, SYMBOL, AMOUNT, price, "bitfinex", "buy", "limit")
-		checkErr(err)
-		if bid2.ID != 0 {
-			bid = bid2
-		}
+// Called on any error
+func checkErr(err error) {
+	if err != nil {
+		exit()
+		log.Fatal(err)
 	}
-
-	bidChan <- bid
 }
 
-// Modify ask order and send to channel
-func replaceAsk(ask bitfinex.Order, askChan chan<- bitfinex.Order, theo float64) {
-	price := theo + ASKEDGE
+// Call on exit
+func exit() {
+	cancelAll()
+	fmt.Println("\nCancelled all orders.")
+}
 
-	if math.Abs(price-ask.Price) >= MINCHANGE {
-		ask2, err := api.ReplaceOrder(ask.ID, SYMBOL, AMOUNT, price, "bitfinex", "sell", "limit")
-		checkErr(err)
-		if ask2.ID != 0 {
-			ask = ask2
-		}
+// Cancel all orders
+func cancelAll() {
+	cancelled := false
+	for !cancelled {
+		cancelled, _ = api.CancelAll()
 	}
-
-	askChan <- ask
 }
 
 // Print results
-func printResults(book bitfinex.Book, trades bitfinex.Trades, bid, ask bitfinex.Order) {
+func printResults(book bitfinex.Book, trades bitfinex.Trades,
+	orders bitfinex.Orders, theo, position float64, start time.Time) {
+
 	clearScreen()
 
 	fmt.Println("----------------------------")
@@ -183,16 +215,15 @@ func printResults(book bitfinex.Book, trades bitfinex.Trades, bid, ask bitfinex.
 		fmt.Printf("%-6.4f - size: %6.2f\n", trade.Price, trade.Amount)
 	}
 
-	fmt.Printf("\nCurrent Bid: %6.4f\n", bid.Price)
-	fmt.Printf("Current Ask: %6.4f\n", ask.Price)
-}
+	fmt.Printf("\nPosition: %.2f\n", position)
+	fmt.Printf("Theo:     %.4f\n", theo)
 
-// Exit on any errors
-func checkErr(err error) {
-	if err != nil {
-		cancelAll()
-		log.Fatal(err)
+	fmt.Println("\nActive orders:")
+	for _, order := range orders.Orders {
+		fmt.Printf("%6.2f %s @ %6.4f\n", order.Amount, SYMBOL, order.Price)
 	}
+
+	fmt.Printf("\n%v processing time...", time.Since(start))
 }
 
 // Clear the terminal between prints
@@ -200,13 +231,4 @@ func clearScreen() {
 	c := exec.Command("clear")
 	c.Stdout = os.Stdout
 	c.Run()
-}
-
-// Cancel all orders
-func cancelAll() {
-	cancelled := false
-	for !cancelled {
-		cancelled, _ = api.CancelAll()
-	}
-	fmt.Println("\nALL ORDERS HAVE BEEN CANCELLED")
 }
