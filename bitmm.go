@@ -1,3 +1,5 @@
+// TODO: set a global orders theo for comparisons
+
 package main
 
 import (
@@ -11,18 +13,19 @@ import (
 
 // Trade inputs
 const (
-	SYMBOL    = "ltcusd" // Instrument to trade
-	MINCHANGE = 0.00005  // Minumum change required to update prices
+	SYMBOL    = "btcusd" // Instrument to trade
+	MINCHANGE = 0.01     // Minumum change required to update prices
 	TRADENUM  = 10       // Number of trades to use in calculations
-	AMOUNT    = 1.00     // Size to trade
-	BIDEDGE   = 0.01     // Required edge for a buy order
-	ASKEDGE   = 0.01     // Required edge for a sell order
+	AMOUNT    = 0.01     // Size to trade
+	BIDEDGE   = 0.10     // Required edge for a buy order
+	ASKEDGE   = 0.10     // Required edge for a sell order
 )
 
 var (
 	api        = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
 	apiErrors  = false
 	liveOrders = false
+	orderTheo  = 0.0
 )
 
 func main() {
@@ -57,8 +60,7 @@ func runMainLoop(inputChan <-chan rune) {
 		start       time.Time
 		oldPosition float64
 		newPosition float64
-		oldTheo     float64
-		newTheo     float64
+		theo        float64
 		lastTrade   int
 	)
 
@@ -72,23 +74,20 @@ func runMainLoop(inputChan <-chan rune) {
 
 		// Possibly send orders when trades data returns
 		trades = <-tradesChan
-		if trades[0].Timestamp != lastTrade { // If new trades
-			newTheo = calculateTheo(trades)
+		if !apiErrors && trades[0].Timestamp != lastTrade { // If new trades
+			theo = calculateTheo(trades)
 			newPosition = checkPosition()
+			// Reset for next iteration
+			lastTrade = trades[0].Timestamp
 		}
-		go sendOrders(orders, oldTheo, newTheo, oldPosition, newPosition, ordersChan)
-
-		lastTrade = trades[0].Timestamp
-		oldTheo = newTheo
-		oldPosition = newPosition
+		go sendOrders(orders, theo, oldPosition, newPosition, ordersChan)
 
 		// Print results when book and order data returns
 		book = <-bookChan
 		orders = <-ordersChan
 		if !apiErrors {
-			printResults(book, trades, orders, newTheo, newPosition, start)
+			printResults(book, trades, orders, theo, newPosition, start)
 		}
-		apiErrors = false
 
 		// Exit if anything entered by user
 		select {
@@ -97,16 +96,22 @@ func runMainLoop(inputChan <-chan rune) {
 			return
 		default:
 		}
+
+		// Reset for next iteration
+		apiErrors = false
+		oldPosition = newPosition
 	}
 }
 
 // Send orders to the exchange
-func sendOrders(orders bitfinex.Orders, oldTheo, newTheo, oldPosition,
-	newPosition float64, ordersChan chan<- bitfinex.Orders) {
+func sendOrders(orders bitfinex.Orders, theo, oldPosition, newPosition float64,
+	ordersChan chan<- bitfinex.Orders) {
 
-	if (math.Abs(oldTheo-newTheo) > MINCHANGE || math.Abs(oldPosition-
+	if (math.Abs(theo-orderTheo) > MINCHANGE || math.Abs(oldPosition-
 		newPosition) > 0.01 || !liveOrders) && !apiErrors {
-		// First cancel all orders
+
+		orderTheo = theo
+
 		if liveOrders {
 			cancelAll()
 		}
@@ -116,18 +121,20 @@ func sendOrders(orders bitfinex.Orders, oldTheo, newTheo, oldPosition,
 		if newPosition+AMOUNT < 0.01 { // Max short postion
 			// One order at theo to exit position
 			params = []bitfinex.OrderParams{
-				{SYMBOL, -newPosition, newTheo, "bitfinex", "buy", "limit"},
+				{SYMBOL, -newPosition, theo - BIDEDGE, "bitfinex", "buy", "limit"},
 			}
 		} else if newPosition-AMOUNT > -0.01 { // Max long postion
 			// One order at theo to exit position
 			params = []bitfinex.OrderParams{
-				{SYMBOL, newPosition, newTheo, "bitfinex", "sell", "limit"},
+				{SYMBOL, newPosition, theo + ASKEDGE, "bitfinex", "sell", "limit"},
 			}
 		} else {
 			// Two orders for edge
 			params = []bitfinex.OrderParams{
-				{SYMBOL, AMOUNT - newPosition, newTheo - BIDEDGE, "bitfinex", "buy", "limit"},
-				{SYMBOL, AMOUNT + newPosition, newTheo + ASKEDGE, "bitfinex", "sell", "limit"},
+				{SYMBOL, math.Min(AMOUNT-newPosition, AMOUNT), theo - BIDEDGE,
+					"bitfinex", "buy", "limit"},
+				{SYMBOL, math.Min(AMOUNT+newPosition, AMOUNT), theo + ASKEDGE,
+					"bitfinex", "sell", "limit"},
 			}
 		}
 
@@ -232,7 +239,7 @@ func printResults(book bitfinex.Book, trades bitfinex.Trades,
 
 	fmt.Println("\nActive orders:")
 	for _, order := range orders.Orders {
-		fmt.Printf("%6.2f %s @ %6.4f\n", order.Amount, SYMBOL, order.Price)
+		fmt.Printf("%8.2f %s @ %6.4f\n", order.Amount, SYMBOL, order.Price)
 	}
 
 	fmt.Printf("\n%v processing time...", time.Since(start))
