@@ -74,11 +74,11 @@ func runMainLoop(inputChan <-chan rune) {
 
 		// Possibly send orders when trades data returns
 		trades = <-tradesChan
-		if !apiErrors && trades[0].Timestamp != lastTrade { // If new trades
+		if !apiErrors && trades[0].TID != lastTrade { // If new trades
 			theo = calculateTheo(trades)
 			newPosition = checkPosition()
 			// Reset for next iteration
-			lastTrade = trades[0].Timestamp
+			lastTrade = trades[0].TID
 		}
 		go sendOrders(orders, theo, oldPosition, newPosition, ordersChan)
 
@@ -108,7 +108,7 @@ func sendOrders(orders bitfinex.Orders, theo, oldPosition, newPosition float64,
 	ordersChan chan<- bitfinex.Orders) {
 
 	if (math.Abs(theo-orderTheo) > MINCHANGE || math.Abs(oldPosition-
-		newPosition) > 0.01 || !liveOrders) && !apiErrors {
+		newPosition) > 0.000001 || !liveOrders) && !apiErrors {
 
 		orderTheo = theo
 
@@ -118,12 +118,12 @@ func sendOrders(orders bitfinex.Orders, theo, oldPosition, newPosition float64,
 
 		var params []bitfinex.OrderParams
 
-		if newPosition+AMOUNT < 0.01 { // Max short postion
+		if newPosition+AMOUNT < 0.000001 { // Max short postion
 			// One order at theo to exit position
 			params = []bitfinex.OrderParams{
 				{SYMBOL, -newPosition, theo - BIDEDGE, "bitfinex", "buy", "limit"},
 			}
-		} else if newPosition-AMOUNT > -0.01 { // Max long postion
+		} else if newPosition-AMOUNT > -0.000001 { // Max long postion
 			// One order at theo to exit position
 			params = []bitfinex.OrderParams{
 				{SYMBOL, newPosition, theo + ASKEDGE, "bitfinex", "sell", "limit"},
