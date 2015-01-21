@@ -75,15 +75,27 @@ type Order struct {
 	IsLive          bool    `json:"is_live,bool"`               // Could the order still be filled?
 	IsCancelled     bool    `json:"is_cancelled,bool"`          // Has the order been cancelled?
 	WasForced       bool    `json:"was_forced,bool"`            // For margin onlytrue if it was forced by the system
-	Amount          float64 `json:"amount,string"`              // Order amount returned in multi order response
+	OriginalAmount  float64 `json:"original_amount,string"`     // What was the order originally submitted for?
 	ExecutedAmount  float64 `json:"executed_amount,string"`     // How much of the order has been executed so far in its history?
 	RemainingAmount float64 `json:"remaining_amount,string"`    // How much is still remaining to be submitted?
-	OriginalAmount  float64 `json:"original_amount,string"`     // What was the order originally submitted for?
+}
+
+type multiOrder struct {
+	ID              int     `json:"id"`                    // Order ID
+	Symbol          string  `json:"pair"`                  // Order symbol
+	RemainingAmount float64 `json:"amount,string"`         // Remaing order amount
+	AvgPrice        float64 `json:"avg_price,string"`      // Average execution price
+	OriginalAmount  float64 `json:"originalamount,string"` // Original order amount
+	CreatedAt       string  `json:"created_at"`            // Creation time
+	Price           float64 `json:"price,string"`          // Order price
+	Status          string  `json:"status"`                // Order status
+	Type            string  `json:"type"`                  // Either "market" / "limit" / "stop" / "trailing-stop"
+	UpdatedAt       string  `json:"updated_at"`            // Update time
 }
 
 // Orders used in processing multiple orders
 type Orders struct {
-	Orders []Order `json:"order_ids"`
+	Orders []multiOrder `json:"order_ids"`
 }
 
 // OrderParams inputs for submitting an order

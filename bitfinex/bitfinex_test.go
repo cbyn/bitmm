@@ -61,6 +61,7 @@ func TestNewOrder(t *testing.T) {
 	if err != nil || order.ID == 0 {
 		t.Fatal(err)
 	}
+
 	t.Logf("Placed a new sell order of 0.1 ltcusd @ %v limit with ID: %d", price, order.ID)
 	if order.Symbol != symbol {
 		t.Fatal("Symbol does not match")
