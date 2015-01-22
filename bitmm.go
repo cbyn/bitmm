@@ -1,5 +1,3 @@
-// TODO: set a global orders theo for comparisons
-
 package main
 
 import (
@@ -13,12 +11,12 @@ import (
 
 // Trade inputs
 const (
-	SYMBOL    = "btcusd" // Instrument to trade
-	MINCHANGE = 0.01     // Minumum change required to update prices
+	SYMBOL    = "ltcusd" // Instrument to trade
+	MINCHANGE = 0.0001   // Minumum change required to update prices
 	TRADENUM  = 10       // Number of trades to use in calculations
-	AMOUNT    = 0.01     // Size to trade
-	BIDEDGE   = 0.10     // Required edge for a buy order
-	ASKEDGE   = 0.10     // Required edge for a sell order
+	AMOUNT    = 50       // Size to trade
+	BIDEDGE   = 0.005    // Required edge for a buy order
+	ASKEDGE   = 0.005    // Required edge for a sell order
 )
 
 var (
@@ -108,7 +106,7 @@ func sendOrders(orders bitfinex.Orders, theo, oldPosition, newPosition float64,
 	ordersChan chan<- bitfinex.Orders) {
 
 	if (math.Abs(theo-orderTheo) > MINCHANGE || math.Abs(oldPosition-
-		newPosition) > 0.000001 || !liveOrders) && !apiErrors {
+		newPosition) > 0.00001 || !liveOrders) && !apiErrors {
 
 		orderTheo = theo
 
@@ -118,22 +116,22 @@ func sendOrders(orders bitfinex.Orders, theo, oldPosition, newPosition float64,
 
 		var params []bitfinex.OrderParams
 
-		if newPosition+AMOUNT < 0.000001 { // Max short postion
-			// One order at theo to exit position
+		if newPosition < -1*(AMOUNT-.000001) { // Max short postion
 			params = []bitfinex.OrderParams{
-				{SYMBOL, -newPosition, theo - BIDEDGE, "bitfinex", "buy", "limit"},
+				// Exit position for half edge
+				{SYMBOL, -1 * newPosition, theo - 0.5*BIDEDGE, "bitfinex", "buy", "limit"},
 			}
-		} else if newPosition-AMOUNT > -0.000001 { // Max long postion
-			// One order at theo to exit position
+		} else if newPosition > (AMOUNT - .000001) { // Max long postion
 			params = []bitfinex.OrderParams{
-				{SYMBOL, newPosition, theo + ASKEDGE, "bitfinex", "sell", "limit"},
+				// Exit position for half edge
+				{SYMBOL, newPosition, theo + 0.5*ASKEDGE, "bitfinex", "sell", "limit"},
 			}
 		} else {
-			// Two orders for edge
 			params = []bitfinex.OrderParams{
-				{SYMBOL, math.Min(AMOUNT-newPosition, AMOUNT), theo - BIDEDGE,
+				// Work both sides for full edge
+				{SYMBOL, math.Min(math.Abs(AMOUNT-newPosition), AMOUNT), theo - BIDEDGE,
 					"bitfinex", "buy", "limit"},
-				{SYMBOL, math.Min(AMOUNT+newPosition, AMOUNT), theo + ASKEDGE,
+				{SYMBOL, math.Min(math.Abs(AMOUNT+newPosition), AMOUNT), theo + ASKEDGE,
 					"bitfinex", "sell", "limit"},
 			}
 		}
@@ -192,7 +190,6 @@ func checkErr(err error) {
 	if err != nil {
 		cancelAll()
 		apiErrors = true
-		fmt.Println(err)
 	}
 }
 

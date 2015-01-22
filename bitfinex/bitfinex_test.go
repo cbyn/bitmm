@@ -7,9 +7,7 @@ import (
 	"testing"
 )
 
-var (
-	api = New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
-)
+var api = New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
 
 func TestTrades(t *testing.T) {
 	// Test good request
@@ -169,7 +167,7 @@ func TestMultipleNewOrders(t *testing.T) {
 }
 
 func TestActivePositions(t *testing.T) {
-	_, err := api.ActivePositions()
+	pos, err := api.ActivePositions()
 	if err != nil {
 		t.Fatal(err)
 	}
