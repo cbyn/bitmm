@@ -13,10 +13,11 @@ import (
 const (
 	SYMBOL    = "ltcusd" // Instrument to trade
 	MINCHANGE = 0.0001   // Minumum change required to update prices
-	TRADENUM  = 10       // Number of trades to use in calculations
-	AMOUNT    = 50       // Size to trade
-	BIDEDGE   = 0.005    // Required edge for a buy order
-	ASKEDGE   = 0.005    // Required edge for a sell order
+	TRADENUM  = 20       // Number of trades to use in calculations
+	MAXO      = 50       // Max order size
+	MINO      = 0.011    // Min order size
+	INEDGE    = 0.05     // Required edge for a buy order
+	OUTEDGE   = 0.01     // Required edge for a sell order
 )
 
 var (
@@ -106,7 +107,7 @@ func sendOrders(orders bitfinex.Orders, theo, oldPosition, newPosition float64,
 	ordersChan chan<- bitfinex.Orders) {
 
 	if (math.Abs(theo-orderTheo) > MINCHANGE || math.Abs(oldPosition-
-		newPosition) > 0.00001 || !liveOrders) && !apiErrors {
+		newPosition) > 0.0000001 || !liveOrders) && !apiErrors {
 
 		orderTheo = theo
 
@@ -114,29 +115,8 @@ func sendOrders(orders bitfinex.Orders, theo, oldPosition, newPosition float64,
 			cancelAll()
 		}
 
-		var params []bitfinex.OrderParams
-
-		if newPosition < -1*(AMOUNT-.000001) { // Max short postion
-			params = []bitfinex.OrderParams{
-				// Exit position for half edge
-				{SYMBOL, -1 * newPosition, theo - 0.5*BIDEDGE, "bitfinex", "buy", "limit"},
-			}
-		} else if newPosition > (AMOUNT - .000001) { // Max long postion
-			params = []bitfinex.OrderParams{
-				// Exit position for half edge
-				{SYMBOL, newPosition, theo + 0.5*ASKEDGE, "bitfinex", "sell", "limit"},
-			}
-		} else {
-			params = []bitfinex.OrderParams{
-				// Work both sides for full edge
-				{SYMBOL, math.Min(math.Abs(AMOUNT-newPosition), AMOUNT), theo - BIDEDGE,
-					"bitfinex", "buy", "limit"},
-				{SYMBOL, math.Min(math.Abs(AMOUNT+newPosition), AMOUNT), theo + ASKEDGE,
-					"bitfinex", "sell", "limit"},
-			}
-		}
-
 		// Send new order request to the exchange
+		params := calcOrderParams(newPosition, theo)
 		orders, err := api.MultipleNewOrders(params)
 		liveOrders = true
 		checkErr(err)
@@ -144,6 +124,39 @@ func sendOrders(orders bitfinex.Orders, theo, oldPosition, newPosition float64,
 	} else {
 		ordersChan <- orders
 	}
+}
+
+func calcOrderParams(position, theo float64) []bitfinex.OrderParams {
+	var params []bitfinex.OrderParams
+
+	if math.Abs(position) < MINO { // No position
+		params = []bitfinex.OrderParams{
+			{SYMBOL, MAXO, theo - INEDGE, "bitfinex", "buy", "limit"},
+			{SYMBOL, MAXO, theo + INEDGE, "bitfinex", "sell", "limit"},
+		}
+	} else if position < (-1*MAXO)+MINO { // Max short postion
+		params = []bitfinex.OrderParams{
+			{SYMBOL, -1 * position, theo - OUTEDGE, "bitfinex", "buy", "limit"},
+		}
+	} else if position > MAXO-MINO { // Max long postion
+		params = []bitfinex.OrderParams{
+			{SYMBOL, position, theo + OUTEDGE, "bitfinex", "sell", "limit"},
+		}
+	} else if (-1*MAXO)+MINO <= position && position <= -1*MINO { // Partial short
+		params = []bitfinex.OrderParams{
+			{SYMBOL, MAXO, theo - INEDGE, "bitfinex", "buy", "limit"},
+			{SYMBOL, -1 * position, theo - OUTEDGE, "bitfinex", "buy", "limit"},
+			{SYMBOL, MAXO + position, theo + INEDGE, "bitfinex", "sell", "limit"},
+		}
+	} else if MINO <= position && position <= MAXO-MINO { // Partial long
+		params = []bitfinex.OrderParams{
+			{SYMBOL, MAXO - position, theo - INEDGE, "bitfinex", "buy", "limit"},
+			{SYMBOL, position, theo + OUTEDGE, "bitfinex", "sell", "limit"},
+			{SYMBOL, MAXO, theo + INEDGE, "bitfinex", "sell", "limit"},
+		}
+	}
+
+	return params
 }
 
 func checkPosition() float64 {
