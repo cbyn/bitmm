@@ -14,10 +14,10 @@ const (
 	SYMBOL    = "ltcusd" // Instrument to trade
 	MINCHANGE = 0.0001   // Minumum change required to update prices
 	TRADENUM  = 20       // Number of trades to use in calculations
-	MAXO      = 50       // Max order size
+	MAXO      = 25       // Max order size
 	MINO      = 0.011    // Min order size
-	INEDGE    = 0.05     // Required edge for a buy order
-	OUTEDGE   = 0.01     // Required edge for a sell order
+	INEDGE    = 0.05     // Required entry edge
+	OUTEDGE   = 0.01     // Required exit edge
 )
 
 var (
@@ -50,7 +50,6 @@ func runMainLoop(inputChan <-chan rune) {
 	// Exchange communication channels
 	bookChan := make(chan bitfinex.Book)
 	tradesChan := make(chan bitfinex.Trades)
-	ordersChan := make(chan bitfinex.Orders)
 
 	var (
 		trades      bitfinex.Trades
@@ -67,6 +66,14 @@ func runMainLoop(inputChan <-chan rune) {
 		// Record time for each iteration
 		start = time.Now()
 
+		// Exit if anything entered by user
+		select {
+		case <-inputChan:
+			exit()
+			return
+		default:
+		}
+
 		// Get data in separate goroutines
 		go processTrades(tradesChan)
 		go processBook(bookChan)
@@ -76,54 +83,40 @@ func runMainLoop(inputChan <-chan rune) {
 		if !apiErrors && trades[0].TID != lastTrade { // If new trades
 			theo = calculateTheo(trades)
 			newPosition = checkPosition()
-			// Reset for next iteration
-			lastTrade = trades[0].TID
+			if (math.Abs(theo-orderTheo) >= MINCHANGE || math.Abs(oldPosition-
+				newPosition) >= MINO || !liveOrders) && !apiErrors {
+				orders = sendOrders(theo, newPosition)
+			}
 		}
-		go sendOrders(orders, theo, oldPosition, newPosition, ordersChan)
 
 		// Print results when book and order data returns
 		book = <-bookChan
-		orders = <-ordersChan
 		if !apiErrors {
 			printResults(book, trades, orders, theo, newPosition, start)
-		}
-
-		// Exit if anything entered by user
-		select {
-		case <-inputChan:
-			exit()
-			return
-		default:
+			// Reset for next iteration
+			oldPosition = newPosition
+			lastTrade = trades[0].TID
 		}
 
 		// Reset for next iteration
 		apiErrors = false
-		oldPosition = newPosition
 	}
 }
 
 // Send orders to the exchange
-func sendOrders(orders bitfinex.Orders, theo, oldPosition, newPosition float64,
-	ordersChan chan<- bitfinex.Orders) {
+func sendOrders(theo, position float64) bitfinex.Orders {
+	orderTheo = theo
 
-	if (math.Abs(theo-orderTheo) > MINCHANGE || math.Abs(oldPosition-
-		newPosition) > 0.0000001 || !liveOrders) && !apiErrors {
-
-		orderTheo = theo
-
-		if liveOrders {
-			cancelAll()
-		}
-
-		// Send new order request to the exchange
-		params := calcOrderParams(newPosition, theo)
-		orders, err := api.MultipleNewOrders(params)
-		liveOrders = true
-		checkErr(err)
-		ordersChan <- orders
-	} else {
-		ordersChan <- orders
+	if liveOrders {
+		cancelAll()
 	}
+
+	// Send new order request to the exchange
+	params := calcOrderParams(position, theo)
+	orders, err := api.MultipleNewOrders(params)
+	liveOrders = true
+	checkErr(err)
+	return orders
 }
 
 func calcOrderParams(position, theo float64) []bitfinex.OrderParams {
