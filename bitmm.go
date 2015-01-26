@@ -15,7 +15,7 @@ import (
 // Trade inputs
 const (
 	SYMBOL    = "ltcusd" // Instrument to trade
-	MINCHANGE = 0.0001   // Minumum change required to update prices
+	MINCHANGE = 0.0025   // Minumum change required to update prices
 	TRADENUM  = 20       // Number of trades to use in calculations
 	MINO      = 1        // Min order size
 )
@@ -30,16 +30,17 @@ var (
 	api        = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
 	apiErrors  = false
 	liveOrders = false
-	orderTheo  = 0.0
+	orderTheo  = 0.0 // Theo value on which the live orders are based
+	orderPos   = 0.0 // Position on which the live orders are based
 )
 
 func main() {
-	fmt.Println("\nInitializing...")
-
 	if len(os.Args) < 4 {
-		fmt.Printf("usage: %s <size> <entry edge> <exit edge>\n", filepath.Base(os.Args[0]))
+		fmt.Printf("usage: %s <size> <entry-edge> <exit-edge>\n", filepath.Base(os.Args[0]))
 		os.Exit(1)
 	}
+
+	fmt.Println("\nInitializing...")
 
 	// Get MAXO, INEDGE, OUTEDGE from user input
 	getVars()
@@ -78,12 +79,11 @@ func runMainLoop(inputChan <-chan rune) {
 	var (
 		trades bitfinex.Trades
 		// book        bitfinex.Book
-		orders      bitfinex.Orders
-		start       time.Time
-		oldPosition float64
-		newPosition float64
-		theo        float64
-		lastTrade   int
+		orders    bitfinex.Orders
+		start     time.Time
+		position  float64
+		theo      float64
+		lastTrade int
 	)
 
 	for {
@@ -101,17 +101,15 @@ func runMainLoop(inputChan <-chan rune) {
 		trades = processTrades()
 		if !apiErrors && trades[0].TID != lastTrade { // If new trades
 			theo = calculateTheo(trades)
-			newPosition = checkPosition()
-			if (math.Abs(theo-orderTheo) >= MINCHANGE || math.Abs(oldPosition-
-				newPosition) >= MINO || !liveOrders) && !apiErrors {
-				orders = sendOrders(theo, newPosition)
+			position = checkPosition()
+			if (math.Abs(theo-orderTheo) >= MINCHANGE || math.Abs(position-
+				orderPos) >= MINO || !liveOrders) && !apiErrors {
+				orders = sendOrders(theo, position)
 			}
 		}
 
 		if !apiErrors {
-			printResults(trades, orders, theo, newPosition, start)
-			// Reset for next iteration
-			oldPosition = newPosition
+			printResults(trades, orders, theo, position, start)
 			lastTrade = trades[0].TID
 		}
 
@@ -122,8 +120,6 @@ func runMainLoop(inputChan <-chan rune) {
 
 // Send orders to the exchange
 func sendOrders(theo, position float64) bitfinex.Orders {
-	orderTheo = theo
-
 	if liveOrders {
 		cancelAll()
 	}
@@ -133,6 +129,10 @@ func sendOrders(theo, position float64) bitfinex.Orders {
 	orders, err := api.MultipleNewOrders(params)
 	liveOrders = true
 	checkErr(err)
+	if err == nil {
+		orderTheo = theo
+		orderPos = position
+	}
 	return orders
 }
 
@@ -230,8 +230,8 @@ func printResults(trades bitfinex.Trades,
 	clearScreen()
 
 	fmt.Println("\nLast Trades:")
-	for _, trade := range trades {
-		fmt.Printf("%-6.4f - size: %6.2f\n", trade.Price, trade.Amount)
+	for i := 0; i < 10; i++ {
+		fmt.Printf("%-6.4f - size: %6.2f\n", trades[i].Price, trades[i].Amount)
 	}
 
 	fmt.Printf("\nPosition: %.2f\n", position)
