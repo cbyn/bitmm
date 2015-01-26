@@ -16,7 +16,7 @@ const (
 	TRADENUM  = 20       // Number of trades to use in calculations
 	MAXO      = 100      // Max order size
 	MINO      = 0.011    // Min order size
-	INEDGE    = 0.04     // Required entry edge
+	INEDGE    = 0.05     // Required entry edge
 	OUTEDGE   = 0.01     // Required exit edge
 )
 
@@ -168,13 +168,13 @@ func checkPosition() float64 {
 	return position
 }
 
-// Get book data and send to channel
-func processBook(bookChan chan<- bitfinex.Book) {
-	book, err := api.Orderbook(SYMBOL, 5, 5)
-	checkErr(err)
-
-	bookChan <- book
-}
+// // Get book data and send to channel
+// func processBook(bookChan chan<- bitfinex.Book) {
+// 	book, err := api.Orderbook(SYMBOL, 5, 5)
+// 	checkErr(err)
+//
+// 	bookChan <- book
+// }
 
 // Get trade data and send to channel
 func processTrades() bitfinex.Trades {
