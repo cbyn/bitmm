@@ -16,7 +16,7 @@ const (
 	TRADENUM  = 20       // Number of trades to use in calculations
 	MAXO      = 100      // Max order size
 	MINO      = 0.011    // Min order size
-	INEDGE    = 0.05     // Required entry edge
+	INEDGE    = 0.04     // Required entry edge
 	OUTEDGE   = 0.01     // Required exit edge
 )
 
