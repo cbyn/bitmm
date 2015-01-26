@@ -48,12 +48,12 @@ func checkStdin(inputChan chan<- rune) {
 // Infinite loop
 func runMainLoop(inputChan <-chan rune) {
 	// Exchange communication channels
-	bookChan := make(chan bitfinex.Book)
-	tradesChan := make(chan bitfinex.Trades)
+	// bookChan := make(chan bitfinex.Book)
+	// tradesChan := make(chan bitfinex.Trades)
 
 	var (
-		trades      bitfinex.Trades
-		book        bitfinex.Book
+		trades bitfinex.Trades
+		// book        bitfinex.Book
 		orders      bitfinex.Orders
 		start       time.Time
 		oldPosition float64
@@ -74,12 +74,14 @@ func runMainLoop(inputChan <-chan rune) {
 		default:
 		}
 
-		// Get data in separate goroutines
-		go processTrades(tradesChan)
-		go processBook(bookChan)
+		// // Get data in separate goroutines
+		// go processTrades(tradesChan)
+		// // go processBook(bookChan)
+		//
+		// // Possibly send orders when trades data returns
+		// trades = <-tradesChan
 
-		// Possibly send orders when trades data returns
-		trades = <-tradesChan
+		trades = processTrades()
 		if !apiErrors && trades[0].TID != lastTrade { // If new trades
 			theo = calculateTheo(trades)
 			newPosition = checkPosition()
@@ -90,9 +92,10 @@ func runMainLoop(inputChan <-chan rune) {
 		}
 
 		// Print results when book and order data returns
-		book = <-bookChan
+		// book = <-bookChan
 		if !apiErrors {
-			printResults(book, trades, orders, theo, newPosition, start)
+			// printResults(book, trades, orders, theo, newPosition, start)
+			printResults(trades, orders, theo, newPosition, start)
 			// Reset for next iteration
 			oldPosition = newPosition
 			lastTrade = trades[0].TID
@@ -174,12 +177,21 @@ func processBook(bookChan chan<- bitfinex.Book) {
 }
 
 // Get trade data and send to channel
-func processTrades(tradesChan chan<- bitfinex.Trades) {
+func processTrades() bitfinex.Trades {
 	trades, err := api.Trades(SYMBOL, TRADENUM)
 	checkErr(err)
 
-	tradesChan <- trades
+	return trades
 }
+
+//
+// // Get trade data and send to channel
+// func processTrades(tradesChan chan<- bitfinex.Trades) {
+// 	trades, err := api.Trades(SYMBOL, TRADENUM)
+// 	checkErr(err)
+//
+// 	tradesChan <- trades
+// }
 
 // Calculate a volume-weighted moving average of trades
 func calculateTheo(trades bitfinex.Trades) float64 {
@@ -215,22 +227,22 @@ func cancelAll() {
 }
 
 // Print results
-func printResults(book bitfinex.Book, trades bitfinex.Trades,
+func printResults(trades bitfinex.Trades,
 	orders bitfinex.Orders, theo, position float64, start time.Time) {
 
 	clearScreen()
 
-	fmt.Println("----------------------------")
-	fmt.Printf("%-10s%-10s%8s\n", " Bid", "  Ask", "Size ")
-	fmt.Println("----------------------------")
-	for i := range book.Asks {
-		item := book.Asks[len(book.Asks)-1-i]
-		fmt.Printf("%-10s%-10.4f%8.2f\n", "", item.Price, item.Amount)
-	}
-	for _, item := range book.Bids {
-		fmt.Printf("%-10.4f%-10.2s%8.2f\n", item.Price, "", item.Amount)
-	}
-	fmt.Println("----------------------------")
+	// fmt.Println("----------------------------")
+	// fmt.Printf("%-10s%-10s%8s\n", " Bid", "  Ask", "Size ")
+	// fmt.Println("----------------------------")
+	// for i := range book.Asks {
+	// 	item := book.Asks[len(book.Asks)-1-i]
+	// 	fmt.Printf("%-10s%-10.4f%8.2f\n", "", item.Price, item.Amount)
+	// }
+	// for _, item := range book.Bids {
+	// 	fmt.Printf("%-10.4f%-10.2s%8.2f\n", item.Price, "", item.Amount)
+	// }
+	// fmt.Println("----------------------------")
 
 	fmt.Println("\nLast Trades:")
 	for _, trade := range trades {
@@ -248,6 +260,40 @@ func printResults(book bitfinex.Book, trades bitfinex.Trades,
 	fmt.Printf("\n%v processing time...", time.Since(start))
 }
 
+// // Print results
+// func printResults(book bitfinex.Book, trades bitfinex.Trades,
+// 	orders bitfinex.Orders, theo, position float64, start time.Time) {
+//
+// 	clearScreen()
+//
+// 	fmt.Println("----------------------------")
+// 	fmt.Printf("%-10s%-10s%8s\n", " Bid", "  Ask", "Size ")
+// 	fmt.Println("----------------------------")
+// 	for i := range book.Asks {
+// 		item := book.Asks[len(book.Asks)-1-i]
+// 		fmt.Printf("%-10s%-10.4f%8.2f\n", "", item.Price, item.Amount)
+// 	}
+// 	for _, item := range book.Bids {
+// 		fmt.Printf("%-10.4f%-10.2s%8.2f\n", item.Price, "", item.Amount)
+// 	}
+// 	fmt.Println("----------------------------")
+//
+// 	fmt.Println("\nLast Trades:")
+// 	for _, trade := range trades {
+// 		fmt.Printf("%-6.4f - size: %6.2f\n", trade.Price, trade.Amount)
+// 	}
+//
+// 	fmt.Printf("\nPosition: %.2f\n", position)
+// 	fmt.Printf("Theo:     %.4f\n", theo)
+//
+// 	fmt.Println("\nActive orders:")
+// 	for _, order := range orders.Orders {
+// 		fmt.Printf("%8.2f %s @ %6.4f\n", order.Amount, SYMBOL, order.Price)
+// 	}
+//
+// 	fmt.Printf("\n%v processing time...", time.Since(start))
+// }
+//
 // Clear the terminal between prints
 func clearScreen() {
 	c := exec.Command("clear")
