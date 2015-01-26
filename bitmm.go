@@ -14,7 +14,7 @@ const (
 	SYMBOL    = "ltcusd" // Instrument to trade
 	MINCHANGE = 0.0001   // Minumum change required to update prices
 	TRADENUM  = 20       // Number of trades to use in calculations
-	MAXO      = 200      // Max order size
+	MAXO      = 150      // Max order size
 	MINO      = 0.011    // Min order size
 	INEDGE    = 0.05     // Required entry edge
 	OUTEDGE   = 0.01     // Required exit edge
