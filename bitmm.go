@@ -127,9 +127,9 @@ func sendOrders(theo, position float64) bitfinex.Orders {
 	// Send new order request to the exchange
 	params := calcOrderParams(position, theo)
 	orders, err := api.MultipleNewOrders(params)
-	liveOrders = true
 	checkErr(err)
 	if err == nil {
+		liveOrders = true
 		orderTheo = theo
 		orderPos = position
 	}
