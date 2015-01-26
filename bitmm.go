@@ -3,9 +3,12 @@ package main
 import (
 	"bitmm/bitfinex"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -14,13 +17,16 @@ const (
 	SYMBOL    = "ltcusd" // Instrument to trade
 	MINCHANGE = 0.0001   // Minumum change required to update prices
 	TRADENUM  = 20       // Number of trades to use in calculations
-	MAXO      = 100      // Max order size
 	MINO      = 0.011    // Min order size
-	INEDGE    = 0.04     // Required entry edge
-	OUTEDGE   = 0.01     // Required exit edge
 )
 
 var (
+	// MAXO maximum order size
+	MAXO float64
+	// INEDGE edge for position entry orders
+	INEDGE float64
+	// OUTEDGE edge for position exit orders
+	OUTEDGE    float64
 	api        = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
 	apiErrors  = false
 	liveOrders = false
@@ -30,12 +36,33 @@ var (
 func main() {
 	fmt.Println("\nInitializing...")
 
+	if len(os.Args) < 4 {
+		fmt.Printf("usage: %s <size> <entry edge> <exit edge>\n", filepath.Base(os.Args[0]))
+		os.Exit(1)
+	}
+
+	// Get MAXO, INEDGE, OUTEDGE from user input
+	getVars()
+
 	// Check for input to break loop
 	inputChan := make(chan rune)
 	go checkStdin(inputChan)
 
 	// Run loop until user input is received
 	runMainLoop(inputChan)
+}
+
+func getVars() {
+	var err error
+	if MAXO, err = strconv.ParseFloat(os.Args[1], 64); err != nil {
+		log.Fatal(err)
+	}
+	if INEDGE, err = strconv.ParseFloat(os.Args[2], 64); err != nil {
+		log.Fatal(err)
+	}
+	if OUTEDGE, err = strconv.ParseFloat(os.Args[3], 64); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // Check for any user input
@@ -47,9 +74,6 @@ func checkStdin(inputChan chan<- rune) {
 
 // Infinite loop
 func runMainLoop(inputChan <-chan rune) {
-	// Exchange communication channels
-	// bookChan := make(chan bitfinex.Book)
-	// tradesChan := make(chan bitfinex.Trades)
 
 	var (
 		trades bitfinex.Trades
@@ -74,13 +98,6 @@ func runMainLoop(inputChan <-chan rune) {
 		default:
 		}
 
-		// // Get data in separate goroutines
-		// go processTrades(tradesChan)
-		// // go processBook(bookChan)
-		//
-		// // Possibly send orders when trades data returns
-		// trades = <-tradesChan
-
 		trades = processTrades()
 		if !apiErrors && trades[0].TID != lastTrade { // If new trades
 			theo = calculateTheo(trades)
@@ -91,10 +108,7 @@ func runMainLoop(inputChan <-chan rune) {
 			}
 		}
 
-		// Print results when book and order data returns
-		// book = <-bookChan
 		if !apiErrors {
-			// printResults(book, trades, orders, theo, newPosition, start)
 			printResults(trades, orders, theo, newPosition, start)
 			// Reset for next iteration
 			oldPosition = newPosition
@@ -168,30 +182,13 @@ func checkPosition() float64 {
 	return position
 }
 
-// // Get book data and send to channel
-// func processBook(bookChan chan<- bitfinex.Book) {
-// 	book, err := api.Orderbook(SYMBOL, 5, 5)
-// 	checkErr(err)
-//
-// 	bookChan <- book
-// }
-
-// Get trade data and send to channel
+// Get trade data
 func processTrades() bitfinex.Trades {
 	trades, err := api.Trades(SYMBOL, TRADENUM)
 	checkErr(err)
 
 	return trades
 }
-
-//
-// // Get trade data and send to channel
-// func processTrades(tradesChan chan<- bitfinex.Trades) {
-// 	trades, err := api.Trades(SYMBOL, TRADENUM)
-// 	checkErr(err)
-//
-// 	tradesChan <- trades
-// }
 
 // Calculate a volume-weighted moving average of trades
 func calculateTheo(trades bitfinex.Trades) float64 {
@@ -232,18 +229,6 @@ func printResults(trades bitfinex.Trades,
 
 	clearScreen()
 
-	// fmt.Println("----------------------------")
-	// fmt.Printf("%-10s%-10s%8s\n", " Bid", "  Ask", "Size ")
-	// fmt.Println("----------------------------")
-	// for i := range book.Asks {
-	// 	item := book.Asks[len(book.Asks)-1-i]
-	// 	fmt.Printf("%-10s%-10.4f%8.2f\n", "", item.Price, item.Amount)
-	// }
-	// for _, item := range book.Bids {
-	// 	fmt.Printf("%-10.4f%-10.2s%8.2f\n", item.Price, "", item.Amount)
-	// }
-	// fmt.Println("----------------------------")
-
 	fmt.Println("\nLast Trades:")
 	for _, trade := range trades {
 		fmt.Printf("%-6.4f - size: %6.2f\n", trade.Price, trade.Amount)
@@ -260,40 +245,6 @@ func printResults(trades bitfinex.Trades,
 	fmt.Printf("\n%v processing time...", time.Since(start))
 }
 
-// // Print results
-// func printResults(book bitfinex.Book, trades bitfinex.Trades,
-// 	orders bitfinex.Orders, theo, position float64, start time.Time) {
-//
-// 	clearScreen()
-//
-// 	fmt.Println("----------------------------")
-// 	fmt.Printf("%-10s%-10s%8s\n", " Bid", "  Ask", "Size ")
-// 	fmt.Println("----------------------------")
-// 	for i := range book.Asks {
-// 		item := book.Asks[len(book.Asks)-1-i]
-// 		fmt.Printf("%-10s%-10.4f%8.2f\n", "", item.Price, item.Amount)
-// 	}
-// 	for _, item := range book.Bids {
-// 		fmt.Printf("%-10.4f%-10.2s%8.2f\n", item.Price, "", item.Amount)
-// 	}
-// 	fmt.Println("----------------------------")
-//
-// 	fmt.Println("\nLast Trades:")
-// 	for _, trade := range trades {
-// 		fmt.Printf("%-6.4f - size: %6.2f\n", trade.Price, trade.Amount)
-// 	}
-//
-// 	fmt.Printf("\nPosition: %.2f\n", position)
-// 	fmt.Printf("Theo:     %.4f\n", theo)
-//
-// 	fmt.Println("\nActive orders:")
-// 	for _, order := range orders.Orders {
-// 		fmt.Printf("%8.2f %s @ %6.4f\n", order.Amount, SYMBOL, order.Price)
-// 	}
-//
-// 	fmt.Printf("\n%v processing time...", time.Since(start))
-// }
-//
 // Clear the terminal between prints
 func clearScreen() {
 	c := exec.Command("clear")
