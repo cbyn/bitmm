@@ -2,7 +2,6 @@ package main
 
 import (
 	"bitmm/bitfinex"
-	"github.com/davecgh/go-spew/spew"
 	"testing"
 )
 
