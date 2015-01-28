@@ -3,6 +3,7 @@ package main
 import (
 	"bitmm/bitfinex"
 	"fmt"
+	"github.com/grd/stat"
 	"log"
 	"math"
 	"os"
@@ -16,34 +17,33 @@ import (
 const (
 	SYMBOL    = "ltcusd" // Instrument to trade
 	MINCHANGE = 0.0025   // Minumum change required to update prices
-	TRADENUM  = 20       // Number of trades to use in calculations
-	MINO      = 1        // Min order size
+	TRADENUM  = 25       // Number of trades to use in calculations
+	MINO      = 0.5      // Min order size
+	STDMULT   = 5        // Multiplier for standard deviation
 )
 
 var (
-	// MAXO maximum order size
-	MAXO float64
-	// INEDGE edge for position entry orders
-	INEDGE float64
-	// OUTEDGE edge for position exit orders
-	OUTEDGE    float64
 	api        = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
-	apiErrors  = false
-	liveOrders = false
-	orderTheo  = 0.0 // Theo value on which the live orders are based
-	orderPos   = 0.0 // Position on which the live orders are based
+	apiErrors  = false // Set to true on any error
+	liveOrders = false // Set to true on any order
+	orderTheo  = 0.0   // Theo value on which the live orders are based
+	orderPos   = 0.0   // Position on which the live orders are based
+	// Fed in as OS args:
+	maxPos      float64 // Maximum Position size
+	minEdge     float64 // Minimum edge for position entry
+	exitPercent float64 // Percent of edge for position exit
 )
 
 func main() {
 	if len(os.Args) < 4 {
-		fmt.Printf("usage: %s <size> <entry-edge> <exit-edge>\n", filepath.Base(os.Args[0]))
+		fmt.Printf("usage: %s <size> <minimum edge> <exit percent edge>\n", filepath.Base(os.Args[0]))
 		os.Exit(1)
 	}
 
 	fmt.Println("\nInitializing...")
 
-	// Get MAXO, INEDGE, OUTEDGE from user input
-	getVars()
+	// Get maxPos, minEdge, exitPercent from user input
+	getArgs()
 
 	// Check for input to break loop
 	inputChan := make(chan rune)
@@ -53,15 +53,15 @@ func main() {
 	runMainLoop(inputChan)
 }
 
-func getVars() {
+func getArgs() {
 	var err error
-	if MAXO, err = strconv.ParseFloat(os.Args[1], 64); err != nil {
+	if maxPos, err = strconv.ParseFloat(os.Args[1], 64); err != nil {
 		log.Fatal(err)
 	}
-	if INEDGE, err = strconv.ParseFloat(os.Args[2], 64); err != nil {
+	if minEdge, err = strconv.ParseFloat(os.Args[2], 64); err != nil {
 		log.Fatal(err)
 	}
-	if OUTEDGE, err = strconv.ParseFloat(os.Args[3], 64); err != nil {
+	if exitPercent, err = strconv.ParseFloat(os.Args[3], 64); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -75,14 +75,15 @@ func checkStdin(inputChan chan<- rune) {
 
 // Infinite loop
 func runMainLoop(inputChan <-chan rune) {
+	positionChan := make(chan float64)
 
 	var (
-		trades bitfinex.Trades
-		// book        bitfinex.Book
+		trades    bitfinex.Trades
 		orders    bitfinex.Orders
 		start     time.Time
 		position  float64
 		theo      float64
+		stdev     float64
 		lastTrade int
 	)
 
@@ -90,26 +91,30 @@ func runMainLoop(inputChan <-chan rune) {
 		// Record time for each iteration
 		start = time.Now()
 
-		// Exit if anything entered by user
+		// Cancel orders and exit if anything entered by user
 		select {
 		case <-inputChan:
 			exit()
 			return
-		default:
+		default: // Continue if nothing on chan
 		}
 
-		trades = processTrades()
+		trades = getTrades()
 		if !apiErrors && trades[0].TID != lastTrade { // If new trades
+			go checkPosition(positionChan)
+			// Do calcs on trade data while waiting for position data
 			theo = calculateTheo(trades)
-			position = checkPosition()
+			stdev = calculateStdev(trades)
+			position = <-positionChan
 			if (math.Abs(theo-orderTheo) >= MINCHANGE || math.Abs(position-
 				orderPos) >= MINO || !liveOrders) && !apiErrors {
-				orders = sendOrders(theo, position)
+				orders = sendOrders(theo, position, stdev)
 			}
 		}
 
 		if !apiErrors {
-			printResults(trades, orders, theo, position, start)
+			printResults(orders, position, stdev, theo, start)
+			// Reset for next iteration
 			lastTrade = trades[0].TID
 		}
 
@@ -119,13 +124,13 @@ func runMainLoop(inputChan <-chan rune) {
 }
 
 // Send orders to the exchange
-func sendOrders(theo, position float64) bitfinex.Orders {
+func sendOrders(theo, position, stdev float64) bitfinex.Orders {
 	if liveOrders {
 		cancelAll()
 	}
 
 	// Send new order request to the exchange
-	params := calcOrderParams(position, theo)
+	params := calculateOrderParams(position, theo, stdev)
 	orders, err := api.MultipleNewOrders(params)
 	checkErr(err)
 	if err == nil {
@@ -136,40 +141,40 @@ func sendOrders(theo, position float64) bitfinex.Orders {
 	return orders
 }
 
-func calcOrderParams(position, theo float64) []bitfinex.OrderParams {
+func calculateOrderParams(position, theo, stdev float64) []bitfinex.OrderParams {
 	var params []bitfinex.OrderParams
 
 	if math.Abs(position) < MINO { // No position
 		params = []bitfinex.OrderParams{
-			{SYMBOL, MAXO, theo - INEDGE, "bitfinex", "buy", "limit"},
-			{SYMBOL, MAXO, theo + INEDGE, "bitfinex", "sell", "limit"},
+			{SYMBOL, maxPos, theo - math.Max(stdev, minEdge), "bitfinex", "buy", "limit"},
+			{SYMBOL, maxPos, theo + math.Max(stdev, minEdge), "bitfinex", "sell", "limit"},
 		}
-	} else if position < (-1*MAXO)+MINO { // Max short postion
+	} else if position < (-1*maxPos)+MINO { // Max short postion
 		params = []bitfinex.OrderParams{
-			{SYMBOL, -1 * position, theo - OUTEDGE, "bitfinex", "buy", "limit"},
+			{SYMBOL, -1 * position, theo - math.Max(stdev, minEdge)*exitPercent, "bitfinex", "buy", "limit"},
 		}
-	} else if position > MAXO-MINO { // Max long postion
+	} else if position > maxPos-MINO { // Max long postion
 		params = []bitfinex.OrderParams{
-			{SYMBOL, position, theo + OUTEDGE, "bitfinex", "sell", "limit"},
+			{SYMBOL, position, theo + math.Max(stdev, minEdge)*exitPercent, "bitfinex", "sell", "limit"},
 		}
-	} else if (-1*MAXO)+MINO <= position && position <= -1*MINO { // Partial short
+	} else if (-1*maxPos)+MINO <= position && position <= -1*MINO { // Partial short
 		params = []bitfinex.OrderParams{
-			{SYMBOL, MAXO, theo - INEDGE, "bitfinex", "buy", "limit"},
-			{SYMBOL, -1 * position, theo - OUTEDGE, "bitfinex", "buy", "limit"},
-			{SYMBOL, MAXO + position, theo + INEDGE, "bitfinex", "sell", "limit"},
+			{SYMBOL, maxPos, theo - math.Max(stdev, minEdge), "bitfinex", "buy", "limit"},
+			{SYMBOL, -1 * position, theo - math.Max(stdev, minEdge)*exitPercent, "bitfinex", "buy", "limit"},
+			{SYMBOL, maxPos + position, theo + math.Max(stdev, minEdge), "bitfinex", "sell", "limit"},
 		}
-	} else if MINO <= position && position <= MAXO-MINO { // Partial long
+	} else if MINO <= position && position <= maxPos-MINO { // Partial long
 		params = []bitfinex.OrderParams{
-			{SYMBOL, MAXO - position, theo - INEDGE, "bitfinex", "buy", "limit"},
-			{SYMBOL, position, theo + OUTEDGE, "bitfinex", "sell", "limit"},
-			{SYMBOL, MAXO, theo + INEDGE, "bitfinex", "sell", "limit"},
+			{SYMBOL, maxPos - position, theo - math.Max(stdev, minEdge), "bitfinex", "buy", "limit"},
+			{SYMBOL, position, theo + math.Max(stdev, minEdge)*exitPercent, "bitfinex", "sell", "limit"},
+			{SYMBOL, maxPos, theo + math.Max(stdev, minEdge), "bitfinex", "sell", "limit"},
 		}
 	}
 
 	return params
 }
 
-func checkPosition() float64 {
+func checkPosition(positionChan chan<- float64) {
 	var position float64
 	posSlice, err := api.ActivePositions()
 	checkErr(err)
@@ -179,25 +184,39 @@ func checkPosition() float64 {
 		}
 	}
 
-	return position
+	positionChan <- position
 }
 
 // Get trade data
-func processTrades() bitfinex.Trades {
+func getTrades() bitfinex.Trades {
 	trades, err := api.Trades(SYMBOL, TRADENUM)
 	checkErr(err)
 
 	return trades
 }
 
-// Calculate a volume-weighted moving average of trades
+// Calculate a volume and time weighted average of traded prices
 func calculateTheo(trades bitfinex.Trades) float64 {
-	var sum1, sum2 float64
+	weightDuration := 60 // number of seconds back for a 50% weight relative to most recent
+	mostRecent := trades[0].Timestamp
+	var weight, timeDivisor, sum, weightTotal float64
+
 	for _, trade := range trades {
-		sum1 += trade.Price * trade.Amount
-		sum2 += trade.Amount
+		timeDivisor = float64(mostRecent - trade.Timestamp + weightDuration)
+		weight = trade.Amount / timeDivisor
+		sum += trade.Price * weight
+		weightTotal += weight
 	}
-	return sum1 / sum2
+
+	return sum / weightTotal
+}
+
+func calculateStdev(trades bitfinex.Trades) float64 {
+	x := make(stat.Float64Slice, len(trades)-1)
+	for i := 1; i < len(trades); i++ {
+		x[i-1] = trades[i-1].Price - trades[i].Price
+	}
+	return STDMULT * stat.Sd(x)
 }
 
 // Called on any error
@@ -224,22 +243,17 @@ func cancelAll() {
 }
 
 // Print results
-func printResults(trades bitfinex.Trades,
-	orders bitfinex.Orders, theo, position float64, start time.Time) {
+func printResults(orders bitfinex.Orders, position, stdev, theo float64, start time.Time) {
 
 	clearScreen()
 
-	fmt.Println("\nLast Trades:")
-	for i := 0; i < 10; i++ {
-		fmt.Printf("%-6.4f - size: %6.2f\n", trades[i].Price, trades[i].Amount)
-	}
-
 	fmt.Printf("\nPosition: %.2f\n", position)
+	fmt.Printf("Stdev:    %.4f\n", stdev)
 	fmt.Printf("Theo:     %.4f\n", theo)
 
 	fmt.Println("\nActive orders:")
 	for _, order := range orders.Orders {
-		fmt.Printf("%8.2f %s @ %6.4f\n", order.Amount, SYMBOL, order.Price)
+		fmt.Printf("%7.2f %s @ %6.4f\n", order.Amount, SYMBOL, order.Price)
 	}
 
 	fmt.Printf("\n%v processing time...", time.Since(start))
