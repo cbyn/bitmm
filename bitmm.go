@@ -19,7 +19,6 @@ const (
 	MINCHANGE = 0.0025   // Minumum change required to update prices
 	TRADENUM  = 25       // Number of trades to use in calculations
 	MINO      = 0.5      // Min order size
-	STDMULT   = 5        // Multiplier for standard deviation
 )
 
 var (
@@ -31,12 +30,14 @@ var (
 	// Fed in as OS args:
 	maxPos      float64 // Maximum Position size
 	minEdge     float64 // Minimum edge for position entry
+	stdMult     float64 // Multiplier for standard deviation
 	exitPercent float64 // Percent of edge for position exit
 )
 
 func main() {
-	if len(os.Args) < 4 {
-		fmt.Printf("usage: %s <size> <minimum edge> <exit percent edge>\n", filepath.Base(os.Args[0]))
+	if len(os.Args) < 5 {
+		fmt.Printf("usage: %s <size> <minimum edge> <stdev multiplier> <exit percent edge>\n",
+			filepath.Base(os.Args[0]))
 		os.Exit(1)
 	}
 
@@ -61,7 +62,10 @@ func getArgs() {
 	if minEdge, err = strconv.ParseFloat(os.Args[2], 64); err != nil {
 		log.Fatal(err)
 	}
-	if exitPercent, err = strconv.ParseFloat(os.Args[3], 64); err != nil {
+	if stdMult, err = strconv.ParseFloat(os.Args[3], 64); err != nil {
+		log.Fatal(err)
+	}
+	if exitPercent, err = strconv.ParseFloat(os.Args[4], 64); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -216,7 +220,7 @@ func calculateStdev(trades bitfinex.Trades) float64 {
 	for i := 1; i < len(trades); i++ {
 		x[i-1] = trades[i-1].Price - trades[i].Price
 	}
-	return STDMULT * stat.Sd(x)
+	return stdMult * stat.Sd(x)
 }
 
 // Called on any error
