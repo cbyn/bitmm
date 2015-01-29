@@ -141,6 +141,9 @@ func sendOrders(theo, position, stdev float64) bitfinex.Orders {
 		liveOrders = true
 		orderTheo = theo
 		orderPos = position
+	} else if len(orders.Orders) == 0 {
+		apiErrors = true
+		log.Println(orders.Message)
 	}
 	return orders
 }
