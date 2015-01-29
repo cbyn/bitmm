@@ -103,7 +103,8 @@ type Order struct {
 
 // Orders used in processing multiple orders
 type Orders struct {
-	Orders []Order `json:"order_ids"`
+	Orders  []Order `json:"order_ids"`
+	Message string  `json:"message"`
 }
 
 // OrderParams inputs for submitting an order
