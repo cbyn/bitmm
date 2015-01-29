@@ -17,7 +17,7 @@ import (
 const (
 	SYMBOL    = "ltcusd" // Instrument to trade
 	MINCHANGE = 0.0025   // Minumum change required to update prices
-	TRADENUM  = 25       // Number of trades to use in calculations
+	TRADENUM  = 50       // Number of trades to use in calculations
 	MINO      = 0.5      // Min order size
 )
 
@@ -155,22 +155,22 @@ func calculateOrderParams(position, theo, stdev float64) []bitfinex.OrderParams 
 		}
 	} else if position < (-1*maxPos)+MINO { // Max short postion
 		params = []bitfinex.OrderParams{
-			{SYMBOL, -1 * position, theo - math.Max(stdev, minEdge)*exitPercent, "bitfinex", "buy", "limit"},
+			{SYMBOL, -1 * position, theo - stdev*exitPercent, "bitfinex", "buy", "limit"},
 		}
 	} else if position > maxPos-MINO { // Max long postion
 		params = []bitfinex.OrderParams{
-			{SYMBOL, position, theo + math.Max(stdev, minEdge)*exitPercent, "bitfinex", "sell", "limit"},
+			{SYMBOL, position, theo + stdev*exitPercent, "bitfinex", "sell", "limit"},
 		}
 	} else if (-1*maxPos)+MINO <= position && position <= -1*MINO { // Partial short
 		params = []bitfinex.OrderParams{
 			{SYMBOL, maxPos, theo - math.Max(stdev, minEdge), "bitfinex", "buy", "limit"},
-			{SYMBOL, -1 * position, theo - math.Max(stdev, minEdge)*exitPercent, "bitfinex", "buy", "limit"},
+			{SYMBOL, -1 * position, theo - stdev*exitPercent, "bitfinex", "buy", "limit"},
 			{SYMBOL, maxPos + position, theo + math.Max(stdev, minEdge), "bitfinex", "sell", "limit"},
 		}
 	} else if MINO <= position && position <= maxPos-MINO { // Partial long
 		params = []bitfinex.OrderParams{
 			{SYMBOL, maxPos - position, theo - math.Max(stdev, minEdge), "bitfinex", "buy", "limit"},
-			{SYMBOL, position, theo + math.Max(stdev, minEdge)*exitPercent, "bitfinex", "sell", "limit"},
+			{SYMBOL, position, theo + stdev*exitPercent, "bitfinex", "sell", "limit"},
 			{SYMBOL, maxPos, theo + math.Max(stdev, minEdge), "bitfinex", "sell", "limit"},
 		}
 	}
