@@ -227,6 +227,7 @@ func calculateStdev(trades bitfinex.Trades) float64 {
 func checkErr(err error) {
 	if err != nil {
 		cancelAll()
+		log.Println(err)
 		apiErrors = true
 	}
 }
