@@ -137,7 +137,7 @@ func sendOrders(theo, position, stdev float64) bitfinex.Orders {
 	params := calculateOrderParams(position, theo, stdev)
 	orders, err := api.MultipleNewOrders(params)
 	checkErr(err)
-	if err == nil {
+	if err == nil && len(orders.Orders) > 0 {
 		liveOrders = true
 		orderTheo = theo
 		orderPos = position
