@@ -167,7 +167,7 @@ func TestMultipleNewOrders(t *testing.T) {
 }
 
 func TestActivePositions(t *testing.T) {
-	pos, err := api.ActivePositions()
+	_, err := api.ActivePositions()
 	if err != nil {
 		t.Fatal(err)
 	}
