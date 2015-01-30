@@ -144,14 +144,14 @@ func sendOrders(theo, position, stdev float64) bitfinex.Orders {
 	// Send new order request to the exchange
 	params := calculateOrderParams(position, theo, stdev)
 	orders, err := api.MultipleNewOrders(params)
-	checkErr(err)
+	checkErr(err, "MultipleNewOrders")
 	if err == nil && len(orders.Orders) > 0 {
 		liveOrders = true
 		orderTheo = theo
 		orderPos = position
 	} else if len(orders.Orders) == 0 {
 		apiErrors = true
-		log.Println(orders.Message)
+		log.Printf("Order Message:\n%s\n%v\n", orders.Message, params)
 	}
 	return orders
 }
@@ -192,7 +192,7 @@ func calculateOrderParams(position, theo, stdev float64) []bitfinex.OrderParams 
 func checkPosition(positionChan chan<- float64) {
 	var position float64
 	posSlice, err := api.ActivePositions()
-	checkErr(err)
+	checkErr(err, "ActivePositions")
 	for _, pos := range posSlice {
 		if pos.Symbol == SYMBOL {
 			position = pos.Amount
@@ -205,7 +205,7 @@ func checkPosition(positionChan chan<- float64) {
 // Get trade data
 func getTrades() bitfinex.Trades {
 	trades, err := api.Trades(SYMBOL, TRADENUM)
-	checkErr(err)
+	checkErr(err, "Trades")
 
 	return trades
 }
@@ -235,10 +235,10 @@ func calculateStdev(trades bitfinex.Trades) float64 {
 }
 
 // Called on any error
-func checkErr(err error) {
+func checkErr(err error, methodName string) {
 	if err != nil {
 		cancelAll()
-		log.Println(err)
+		log.Printf("%s returned an error:\n%s\n", methodName, err)
 		apiErrors = true
 	}
 }
