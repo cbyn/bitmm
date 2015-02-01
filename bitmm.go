@@ -151,7 +151,7 @@ func sendOrders(theo, position, stdev float64) bitfinex.Orders {
 		orderPos = position
 	} else if len(orders.Orders) == 0 {
 		apiErrors = true
-		log.Printf("Order Message:\n%s\n%v\n", orders.Message, params)
+		log.Printf("Order Message: %s\n", orders.Message)
 	}
 	return orders
 }
@@ -238,7 +238,7 @@ func calculateStdev(trades bitfinex.Trades) float64 {
 func checkErr(err error, methodName string) {
 	if err != nil {
 		cancelAll()
-		log.Printf("%s returned an error:\n%s\n", methodName, err)
+		log.Printf("%s Error: %s\n", methodName, err)
 		apiErrors = true
 	}
 }
