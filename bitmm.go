@@ -17,8 +17,8 @@ import (
 const (
 	SYMBOL    = "ltcusd" // Instrument to trade
 	MINCHANGE = 0.001    // Minumum change required to update prices
-	TRADENUM  = 33       // Number of trades to use in calculations
-	MINO      = 0.5      // Min order size
+	TRADENUM  = 40       // Number of trades to use in calculations
+	MINO      = 0.25     // Min order size
 )
 
 var (
