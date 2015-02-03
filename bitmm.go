@@ -15,10 +15,10 @@ import (
 
 // Trade inputs
 const (
-	SYMBOL    = "ltcusd" // Instrument to trade
-	MINCHANGE = 0.001    // Minumum change required to update prices
+	SYMBOL    = "btcusd" // Instrument to trade
+	MINCHANGE = 0.1      // Minumum change required to update prices
 	TRADENUM  = 40       // Number of trades to use in calculations
-	MINO      = 0.25     // Min order size
+	MINO      = 0.01     // Min order size
 )
 
 var (
@@ -140,17 +140,16 @@ func sendOrders(theo, position, stdev float64) bitfinex.Orders {
 	if liveOrders {
 		cancelAll()
 	}
+	liveOrders = true
+	orderTheo = theo
+	orderPos = position
 
 	// Send new order request to the exchange
 	params := calculateOrderParams(position, theo, stdev)
 	orders, err := api.MultipleNewOrders(params)
 	checkErr(err, "MultipleNewOrders")
-	if err == nil && len(orders.Orders) > 0 {
-		liveOrders = true
-		orderTheo = theo
-		orderPos = position
-	} else if len(orders.Orders) == 0 {
-		apiErrors = true
+	if orders.Message != "" {
+		cancelAll()
 		log.Printf("Order Message: %s\n", orders.Message)
 	}
 	return orders
