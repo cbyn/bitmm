@@ -15,10 +15,10 @@ import (
 
 // Trade inputs
 const (
-	SYMBOL    = "btcusd" // Instrument to trade
-	MINCHANGE = 0.1      // Minumum change required to update prices
+	SYMBOL    = "ltcusd" // Instrument to trade
+	MINCHANGE = 0.0005   // Minumum change required to update prices
 	TRADENUM  = 40       // Number of trades to use in calculations
-	MINO      = 0.01     // Min order size
+	MINO      = 0.25     // Min order size
 )
 
 var (
@@ -148,10 +148,12 @@ func sendOrders(theo, position, stdev float64) bitfinex.Orders {
 	params := calculateOrderParams(position, theo, stdev)
 	orders, err := api.MultipleNewOrders(params)
 	checkErr(err, "MultipleNewOrders")
+
 	if orders.Message != "" {
 		cancelAll()
 		log.Printf("Order Message: %s\n", orders.Message)
 	}
+
 	return orders
 }
 
