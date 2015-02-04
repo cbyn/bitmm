@@ -2,24 +2,31 @@ package main
 
 import (
 	"bitmm/bitfinex"
+	"code.google.com/p/gcfg"
+	"flag"
 	"fmt"
 	"github.com/grd/stat"
 	"log"
 	"math"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strconv"
 	"time"
 )
 
-// Trade inputs
-const (
-	SYMBOL    = "ltcusd" // Instrument to trade
-	MINCHANGE = 0.0005   // Minumum change required to update prices
-	TRADENUM  = 40       // Number of trades to use in calculations
-	MINO      = 0.25     // Min order size
-)
+// Config stores user configuration
+type Config struct {
+	Sec struct {
+		Symbol         string  // Instrument to trade
+		TradeNum       int     // Number of trades to use in calculations
+		WeightDuration int     // Number of seconds back for a 50% weight
+		MinPos         float64 // Min order size
+		MaxPos         float64 // Maximum Position size
+		MinEdge        float64 // Minimum edge for position entry
+		StdMult        float64 // Multiplier for standard deviation
+		ExitPercent    float64 // Percent of edge for position exit
+		MinChange      float64 // Minumum change required to update prices
+	}
+}
 
 var (
 	api        = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
@@ -27,32 +34,26 @@ var (
 	liveOrders = false // Set to true on any order
 	orderTheo  = 0.0   // Theo value on which the live orders are based
 	orderPos   = 0.0   // Position on which the live orders are based
-	// Fed in as OS args:
-	maxPos      float64 // Maximum Position size
-	minEdge     float64 // Minimum edge for position entry
-	stdMult     float64 // Multiplier for standard deviation
-	exitPercent float64 // Percent of edge for position exit
+	cfg        Config
 )
 
 func main() {
-	if len(os.Args) < 5 {
-		fmt.Printf("usage: %s <size> <minimum edge> <stdev multiplier> <exit percent edge>\n",
-			filepath.Base(os.Args[0]))
-		os.Exit(1)
-	}
-
 	fmt.Println("\nInitializing...")
 
 	// Set file for logging
-	logFile, err := os.OpenFile("bitmm_log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile("bitmm.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer logFile.Close()
 	log.SetOutput(logFile)
 
-	// Get maxPos, minEdge, exitPercent from user input
-	getArgs()
+	// Get config info
+	configFile := *flag.String("config", "bitmm.gcfg", "Configuration file")
+	err = gcfg.ReadFileInto(&cfg, configFile)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Check for input to break loop
 	inputChan := make(chan rune)
@@ -60,22 +61,6 @@ func main() {
 
 	// Run loop until user input is received
 	runMainLoop(inputChan)
-}
-
-func getArgs() {
-	var err error
-	if maxPos, err = strconv.ParseFloat(os.Args[1], 64); err != nil {
-		log.Fatal(err)
-	}
-	if minEdge, err = strconv.ParseFloat(os.Args[2], 64); err != nil {
-		log.Fatal(err)
-	}
-	if stdMult, err = strconv.ParseFloat(os.Args[3], 64); err != nil {
-		log.Fatal(err)
-	}
-	if exitPercent, err = strconv.ParseFloat(os.Args[4], 64); err != nil {
-		log.Fatal(err)
-	}
 }
 
 // Check for any user input
@@ -118,8 +103,8 @@ func runMainLoop(inputChan <-chan rune) {
 			theo = calculateTheo(trades)
 			stdev = calculateStdev(trades)
 			position = <-positionChan
-			if (math.Abs(theo-orderTheo) >= MINCHANGE || math.Abs(position-
-				orderPos) >= MINO || !liveOrders) && !apiErrors {
+			if (math.Abs(theo-orderTheo) >= cfg.Sec.MinChange || math.Abs(position-
+				orderPos) >= cfg.Sec.MinPos || !liveOrders) && !apiErrors {
 				orders = sendOrders(theo, position, stdev)
 			}
 		}
@@ -160,30 +145,30 @@ func sendOrders(theo, position, stdev float64) bitfinex.Orders {
 func calculateOrderParams(position, theo, stdev float64) []bitfinex.OrderParams {
 	var params []bitfinex.OrderParams
 
-	if math.Abs(position) < MINO { // No position
+	if math.Abs(position) < cfg.Sec.MinPos { // No position
 		params = []bitfinex.OrderParams{
-			{SYMBOL, maxPos, theo - math.Max(stdev, minEdge), "bitfinex", "buy", "limit"},
-			{SYMBOL, maxPos, theo + math.Max(stdev, minEdge), "bitfinex", "sell", "limit"},
+			{cfg.Sec.Symbol, cfg.Sec.MaxPos, theo - math.Max(stdev, cfg.Sec.MinEdge), "bitfinex", "buy", "limit"},
+			{cfg.Sec.Symbol, cfg.Sec.MaxPos, theo + math.Max(stdev, cfg.Sec.MinEdge), "bitfinex", "sell", "limit"},
 		}
-	} else if position < (-1*maxPos)+MINO { // Max short postion
+	} else if position < (-1*cfg.Sec.MaxPos)+cfg.Sec.MinPos { // Max short postion
 		params = []bitfinex.OrderParams{
-			{SYMBOL, -1 * position, theo - math.Max(stdev, minEdge)*exitPercent, "bitfinex", "buy", "limit"},
+			{cfg.Sec.Symbol, -1 * position, theo - math.Max(stdev, cfg.Sec.MinEdge)*cfg.Sec.ExitPercent, "bitfinex", "buy", "limit"},
 		}
-	} else if position > maxPos-MINO { // Max long postion
+	} else if position > cfg.Sec.MaxPos-cfg.Sec.MinPos { // Max long postion
 		params = []bitfinex.OrderParams{
-			{SYMBOL, position, theo + math.Max(stdev, minEdge)*exitPercent, "bitfinex", "sell", "limit"},
+			{cfg.Sec.Symbol, position, theo + math.Max(stdev, cfg.Sec.MinEdge)*cfg.Sec.ExitPercent, "bitfinex", "sell", "limit"},
 		}
-	} else if (-1*maxPos)+MINO <= position && position <= -1*MINO { // Partial short
+	} else if (-1*cfg.Sec.MaxPos)+cfg.Sec.MinPos <= position && position <= -1*cfg.Sec.MinPos { // Partial short
 		params = []bitfinex.OrderParams{
-			{SYMBOL, maxPos, theo - math.Max(stdev, minEdge), "bitfinex", "buy", "limit"},
-			{SYMBOL, -1 * position, theo - math.Max(stdev, minEdge)*exitPercent, "bitfinex", "buy", "limit"},
-			{SYMBOL, maxPos + position, theo + math.Max(stdev, minEdge), "bitfinex", "sell", "limit"},
+			{cfg.Sec.Symbol, cfg.Sec.MaxPos, theo - math.Max(stdev, cfg.Sec.MinEdge), "bitfinex", "buy", "limit"},
+			{cfg.Sec.Symbol, -1 * position, theo - math.Max(stdev, cfg.Sec.MinEdge)*cfg.Sec.ExitPercent, "bitfinex", "buy", "limit"},
+			{cfg.Sec.Symbol, cfg.Sec.MaxPos + position, theo + math.Max(stdev, cfg.Sec.MinEdge), "bitfinex", "sell", "limit"},
 		}
-	} else if MINO <= position && position <= maxPos-MINO { // Partial long
+	} else if cfg.Sec.MinPos <= position && position <= cfg.Sec.MaxPos-cfg.Sec.MinPos { // Partial long
 		params = []bitfinex.OrderParams{
-			{SYMBOL, maxPos - position, theo - math.Max(stdev, minEdge), "bitfinex", "buy", "limit"},
-			{SYMBOL, position, theo + math.Max(stdev, minEdge)*exitPercent, "bitfinex", "sell", "limit"},
-			{SYMBOL, maxPos, theo + math.Max(stdev, minEdge), "bitfinex", "sell", "limit"},
+			{cfg.Sec.Symbol, cfg.Sec.MaxPos - position, theo - math.Max(stdev, cfg.Sec.MinEdge), "bitfinex", "buy", "limit"},
+			{cfg.Sec.Symbol, position, theo + math.Max(stdev, cfg.Sec.MinEdge)*cfg.Sec.ExitPercent, "bitfinex", "sell", "limit"},
+			{cfg.Sec.Symbol, cfg.Sec.MaxPos, theo + math.Max(stdev, cfg.Sec.MinEdge), "bitfinex", "sell", "limit"},
 		}
 	}
 
@@ -195,7 +180,7 @@ func checkPosition(positionChan chan<- float64) {
 	posSlice, err := api.ActivePositions()
 	checkErr(err, "ActivePositions")
 	for _, pos := range posSlice {
-		if pos.Symbol == SYMBOL {
+		if pos.Symbol == cfg.Sec.Symbol {
 			position = pos.Amount
 		}
 	}
@@ -205,7 +190,7 @@ func checkPosition(positionChan chan<- float64) {
 
 // Get trade data
 func getTrades() bitfinex.Trades {
-	trades, err := api.Trades(SYMBOL, TRADENUM)
+	trades, err := api.Trades(cfg.Sec.Symbol, cfg.Sec.TradeNum)
 	checkErr(err, "Trades")
 
 	return trades
@@ -213,12 +198,11 @@ func getTrades() bitfinex.Trades {
 
 // Calculate a volume and time weighted average of traded prices
 func calculateTheo(trades bitfinex.Trades) float64 {
-	weightDuration := 60 // number of seconds back for a 50% weight relative to most recent
 	mostRecent := trades[0].Timestamp
 	var weight, timeDivisor, sum, weightTotal float64
 
 	for _, trade := range trades {
-		timeDivisor = float64(mostRecent - trade.Timestamp + weightDuration)
+		timeDivisor = float64(mostRecent - trade.Timestamp + cfg.Sec.WeightDuration)
 		weight = trade.Amount / timeDivisor
 		sum += trade.Price * weight
 		weightTotal += weight
@@ -232,7 +216,7 @@ func calculateStdev(trades bitfinex.Trades) float64 {
 	for i := 1; i < len(trades); i++ {
 		x[i-1] = trades[i-1].Price - trades[i].Price
 	}
-	return stdMult * stat.Sd(x)
+	return cfg.Sec.StdMult * stat.Sd(x)
 }
 
 // Called on any error
@@ -270,7 +254,7 @@ func printResults(orders bitfinex.Orders, position, stdev, theo float64, start t
 
 	fmt.Println("\nActive orders:")
 	for _, order := range orders.Orders {
-		fmt.Printf("%7.2f %s @ %6.4f\n", order.Amount, SYMBOL, order.Price)
+		fmt.Printf("%7.2f %s @ %6.4f\n", order.Amount, cfg.Sec.Symbol, order.Price)
 	}
 
 	fmt.Printf("\n%v processing time...", time.Since(start))
