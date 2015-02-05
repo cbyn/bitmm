@@ -49,8 +49,9 @@ func main() {
 	log.SetOutput(logFile)
 
 	// Get config info
-	configFile := *flag.String("config", "bitmm.gcfg", "Configuration file")
-	err = gcfg.ReadFileInto(&cfg, configFile)
+	configFile := flag.String("config", "bitmm.gcfg", "Configuration file")
+	flag.Parse()
+	err = gcfg.ReadFileInto(&cfg, *configFile)
 	if err != nil {
 		log.Fatal(err)
 	}
