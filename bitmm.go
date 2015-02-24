@@ -97,23 +97,31 @@ func runMainLoop(inputChan <-chan rune) {
 		default: // Continue if nothing on chan
 		}
 
+		// Check trades
 		trades = getTrades()
-		if !apiErrors && trades[0].TID != lastTrade { // If new trades
+
+		// If new trades check position and do calculations
+		if !apiErrors && trades[0].TID != lastTrade {
 			go checkPosition(positionChan)
+
 			// Do calcs on trade data while waiting for position data
 			theo = calculateTheo(trades)
 			stdev = calculateStdev(trades)
 			position = <-positionChan
-			if (math.Abs(theo-orderTheo) >= cfg.Sec.MinChange || math.Abs(position-
-				orderPos) >= cfg.Sec.MinPos || !liveOrders) && !apiErrors {
-				orders = sendOrders(theo, position, stdev)
-			}
-		}
 
-		if !apiErrors {
-			printResults(orders, position, stdev, theo, start)
 			// Reset for next iteration
 			lastTrade = trades[0].TID
+		}
+
+		// Send orders if necessary
+		if !apiErrors && (math.Abs(theo-orderTheo) >= cfg.Sec.MinChange ||
+			math.Abs(position-orderPos) >= cfg.Sec.MinPos || !liveOrders) {
+			orders = sendOrders(theo, position, stdev)
+		}
+
+		// Print results
+		if !apiErrors {
+			printResults(orders, position, stdev, theo, start)
 		}
 
 		// Reset for next iteration
