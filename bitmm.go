@@ -135,9 +135,9 @@ func sendOrders(theo, position, stdev float64) bitfinex.Orders {
 	orders, err := api.MultipleNewOrders(params)
 	checkErr(err, "MultipleNewOrders")
 
-	if orders.Message != "" {
+	if orders.Message != "" || len(orders.Orders) == 0 || orders.Orders[0].ID == 0 {
 		cancelAll()
-		log.Printf("Order Message: %s\n", orders.Message)
+		log.Printf("Order Problem %s\n", orders.Message)
 	}
 
 	return orders
