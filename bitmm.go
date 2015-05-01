@@ -32,7 +32,7 @@ type Config struct {
 }
 
 var (
-	api        = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
+	client     = bitfinex.New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
 	apiErrors  = false // Set to true on any error
 	liveOrders = false // Set to true on any order
 	orderTheo  = 0.0   // Theo value on which the live orders are based
@@ -143,7 +143,7 @@ func sendOrders(theo, position, stdev float64) bitfinex.Orders {
 
 	// Send new order request to the exchange
 	params := calculateOrderParams(position, theo, stdev)
-	orders, err := api.MultipleNewOrders(params)
+	orders, err := client.MultipleNewOrders(params)
 	checkErr(err, "MultipleNewOrders")
 
 	if orders.Message != "" || len(orders.Orders) == 0 || orders.Orders[0].ID == 0 {
@@ -191,7 +191,7 @@ func calculateOrderParams(position, theo, stdev float64) []bitfinex.OrderParams 
 // Get position data
 func checkPosition(positionChan chan<- float64) {
 	var position float64
-	posSlice, err := api.ActivePositions()
+	posSlice, err := client.ActivePositions()
 	checkErr(err, "ActivePositions")
 	for _, pos := range posSlice {
 		if pos.Symbol == cfg.Sec.Symbol {
@@ -204,7 +204,7 @@ func checkPosition(positionChan chan<- float64) {
 
 // Get trade data
 func getTrades() bitfinex.Trades {
-	trades, err := api.Trades(cfg.Sec.Symbol, cfg.Sec.TradeNum)
+	trades, err := client.Trades(cfg.Sec.Symbol, cfg.Sec.TradeNum)
 	checkErr(err, "Trades")
 
 	return trades
@@ -253,7 +253,7 @@ func exit() {
 func cancelAll() {
 	cancelled := false
 	for !cancelled {
-		cancelled, _ = api.CancelAll()
+		cancelled, _ = client.CancelAll()
 	}
 	liveOrders = false
 }

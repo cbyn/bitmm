@@ -21,8 +21,8 @@ const (
 	APIURL = "https://api.bitfinex.com"
 )
 
-// Bitfinex stores Bitfinex credentials
-type Bitfinex struct {
+// Client stores Bitfinex credentials
+type Client struct {
 	APIKey    string
 	APISecret string
 }
@@ -137,17 +137,17 @@ type Position struct {
 // Positions is a slice of Position
 type Positions []Position
 
-// New returns a new Bitfinex API instance
-func New(key, secret string) Bitfinex {
-	return Bitfinex{key, secret}
+// New returns a new Client instance
+func New(key, secret string) Client {
+	return Client{key, secret}
 }
 
 // Trades gets trade data from the exchange
-func (bitfinex Bitfinex) Trades(symbol string, limitTrades int) (Trades, error) {
+func (client Client) Trades(symbol string, limitTrades int) (Trades, error) {
 	var trades Trades
 
 	url := fmt.Sprintf("/v1/trades/%s?limit_trades=%d", symbol, limitTrades)
-	data, err := bitfinex.get(url)
+	data, err := client.get(url)
 	if err != nil {
 		return trades, err
 	}
@@ -161,11 +161,11 @@ func (bitfinex Bitfinex) Trades(symbol string, limitTrades int) (Trades, error) 
 }
 
 // Orderbook gets orderbook data from the exchange
-func (bitfinex Bitfinex) Orderbook(symbol string, limitBids, limitAsks int) (Book, error) {
+func (client Client) Orderbook(symbol string, limitBids, limitAsks int) (Book, error) {
 	var book Book
 
 	url := fmt.Sprintf("/v1/book/%s?limit_bids=%d&limit_asks=%d", symbol, limitBids, limitAsks)
-	data, err := bitfinex.get(url)
+	data, err := client.get(url)
 	if err != nil {
 		return book, err
 	}
@@ -179,7 +179,7 @@ func (bitfinex Bitfinex) Orderbook(symbol string, limitBids, limitAsks int) (Boo
 }
 
 // NewOrder posts new order to the exchange
-func (bitfinex Bitfinex) NewOrder(symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
+func (client Client) NewOrder(symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
 	request := struct {
 		URL      string  `json:"request"`
 		Nonce    string  `json:"nonce"`
@@ -200,11 +200,11 @@ func (bitfinex Bitfinex) NewOrder(symbol string, amount, price float64, exchange
 		otype,
 	}
 
-	return bitfinex.postOrder(request.URL, request)
+	return client.postOrder(request.URL, request)
 }
 
 // MultipleNewOrders posts multiple new orders to the exchange
-func (bitfinex Bitfinex) MultipleNewOrders(params []OrderParams) (Orders, error) {
+func (client Client) MultipleNewOrders(params []OrderParams) (Orders, error) {
 	request := struct {
 		URL    string        `json:"request"`
 		Nonce  string        `json:"nonce"`
@@ -215,11 +215,11 @@ func (bitfinex Bitfinex) MultipleNewOrders(params []OrderParams) (Orders, error)
 		params,
 	}
 
-	return bitfinex.postMultiOrder(request.URL, request)
+	return client.postMultiOrder(request.URL, request)
 }
 
 // CancelOrder cancels existing orders on the exchange
-func (bitfinex Bitfinex) CancelOrder(id int) (Order, error) {
+func (client Client) CancelOrder(id int) (Order, error) {
 	request := struct {
 		URL     string `json:"request"`
 		Nonce   string `json:"nonce"`
@@ -230,11 +230,11 @@ func (bitfinex Bitfinex) CancelOrder(id int) (Order, error) {
 		id,
 	}
 
-	return bitfinex.postOrder(request.URL, request)
+	return client.postOrder(request.URL, request)
 }
 
 // CancelAll cancels all active orders
-func (bitfinex Bitfinex) CancelAll() (bool, error) {
+func (client Client) CancelAll() (bool, error) {
 	request := struct {
 		URL   string `json:"request"`
 		Nonce string `json:"nonce"`
@@ -243,7 +243,7 @@ func (bitfinex Bitfinex) CancelAll() (bool, error) {
 		strconv.FormatInt(time.Now().UnixNano(), 10),
 	}
 
-	data, err := bitfinex.post(request.URL, request)
+	data, err := client.post(request.URL, request)
 
 	var cancel Cancellation
 
@@ -262,7 +262,7 @@ func (bitfinex Bitfinex) CancelAll() (bool, error) {
 }
 
 // ReplaceOrder replaces existing orders on the exchange
-func (bitfinex Bitfinex) ReplaceOrder(id int, symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
+func (client Client) ReplaceOrder(id int, symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
 	request := struct {
 		URL      string  `json:"request"`
 		Nonce    string  `json:"nonce"`
@@ -285,11 +285,11 @@ func (bitfinex Bitfinex) ReplaceOrder(id int, symbol string, amount, price float
 		otype,
 	}
 
-	return bitfinex.postOrder(request.URL, request)
+	return client.postOrder(request.URL, request)
 }
 
 // OrderStatus gets order status
-func (bitfinex Bitfinex) OrderStatus(id int) (Order, error) {
+func (client Client) OrderStatus(id int) (Order, error) {
 	request := struct {
 		URL     string `json:"request"`
 		Nonce   string `json:"nonce"`
@@ -300,11 +300,11 @@ func (bitfinex Bitfinex) OrderStatus(id int) (Order, error) {
 		id,
 	}
 
-	return bitfinex.postOrder(request.URL, request)
+	return client.postOrder(request.URL, request)
 }
 
 // ActivePositions returns active positions from the exchange
-func (bitfinex Bitfinex) ActivePositions() (Positions, error) {
+func (client Client) ActivePositions() (Positions, error) {
 	request := struct {
 		URL   string `json:"request"`
 		Nonce string `json:"nonce"`
@@ -314,7 +314,7 @@ func (bitfinex Bitfinex) ActivePositions() (Positions, error) {
 	}
 
 	var positions Positions
-	data, err := bitfinex.post(request.URL, request)
+	data, err := client.post(request.URL, request)
 	if err != nil {
 		return positions, err
 	}
@@ -336,10 +336,10 @@ func (bitfinex Bitfinex) ActivePositions() (Positions, error) {
 // TODO: ActiveOrders
 
 // postOrder is used in order-related API methods
-func (bitfinex Bitfinex) postOrder(url string, request interface{}) (Order, error) {
+func (client Client) postOrder(url string, request interface{}) (Order, error) {
 	var order Order
 
-	data, err := bitfinex.post(url, request)
+	data, err := client.post(url, request)
 	if err != nil {
 		return order, err
 	}
@@ -359,10 +359,10 @@ func (bitfinex Bitfinex) postOrder(url string, request interface{}) (Order, erro
 }
 
 // postMultiOrder is used in multi order-related API methods
-func (bitfinex Bitfinex) postMultiOrder(url string, request interface{}) (Orders, error) {
+func (client Client) postMultiOrder(url string, request interface{}) (Orders, error) {
 	var orders Orders
 
-	data, err := bitfinex.post(url, request)
+	data, err := client.post(url, request)
 	if err != nil {
 		return orders, err
 	}
@@ -382,7 +382,7 @@ func (bitfinex Bitfinex) postMultiOrder(url string, request interface{}) (Orders
 }
 
 // get executes an unauthenticated GET
-func (bitfinex Bitfinex) get(url string) ([]byte, error) {
+func (client Client) get(url string) ([]byte, error) {
 	resp, err := http.Get(APIURL + url)
 	if err != nil {
 		return []byte{}, err
@@ -393,7 +393,7 @@ func (bitfinex Bitfinex) get(url string) ([]byte, error) {
 }
 
 // post executes an authenticated POST
-func (bitfinex Bitfinex) post(url string, payload interface{}) ([]byte, error) {
+func (client Client) post(url string, payload interface{}) ([]byte, error) {
 	// Payload = parameters-dictionary -> JSON encode -> base64
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
@@ -402,11 +402,11 @@ func (bitfinex Bitfinex) post(url string, payload interface{}) ([]byte, error) {
 	payloadBase64 := base64.StdEncoding.EncodeToString(payloadJSON)
 
 	// Signature = HMAC-SHA384(payload, api-secret) as hexadecimal
-	h := hmac.New(sha512.New384, []byte(bitfinex.APISecret))
+	h := hmac.New(sha512.New384, []byte(client.APISecret))
 	h.Write([]byte(payloadBase64))
 	signature := hex.EncodeToString(h.Sum(nil))
 
-	client := &http.Client{}
+	httpClient := &http.Client{}
 	req, err := http.NewRequest("POST", APIURL+url, nil)
 	// req.Close = true
 	if err != nil {
@@ -417,11 +417,11 @@ func (bitfinex Bitfinex) post(url string, payload interface{}) ([]byte, error) {
 	// X-BFX-APIKEY
 	// X-BFX-PAYLOAD
 	// X-BFX-SIGNATURE
-	req.Header.Add("X-BFX-APIKEY", bitfinex.APIKey)
+	req.Header.Add("X-BFX-APIKEY", client.APIKey)
 	req.Header.Add("X-BFX-PAYLOAD", payloadBase64)
 	req.Header.Add("X-BFX-SIGNATURE", signature)
 
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return []byte{}, err
 	}

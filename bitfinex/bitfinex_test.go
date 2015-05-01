@@ -9,17 +9,17 @@ import (
 	"testing"
 )
 
-var api = New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
+var client = New(os.Getenv("BITFINEX_KEY"), os.Getenv("BITFINEX_SECRET"))
 
 func TestTrades(t *testing.T) {
 	// Test good request
-	trades, err := api.Trades("ltcusd", 10)
+	trades, err := client.Trades("ltcusd", 10)
 	if err != nil || trades == nil {
 		t.Fatal(err)
 	}
 
 	// Test bad request
-	trades, err = api.Trades("badsymbol", 10)
+	trades, err = client.Trades("badsymbol", 10)
 	if trades != nil {
 		t.Fatal("Expected empty trades on bad request")
 	}
@@ -27,7 +27,7 @@ func TestTrades(t *testing.T) {
 
 func TestOrderbook(t *testing.T) {
 	// Test good request
-	book, err := api.Orderbook("ltcusd", 10, 10)
+	book, err := client.Orderbook("ltcusd", 10, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestOrderbook(t *testing.T) {
 	}
 
 	// Test bad request
-	book, err = api.Orderbook("badsymbol", 10, 10)
+	book, err = client.Orderbook("badsymbol", 10, 10)
 	if book.Bids != nil || book.Asks != nil {
 		t.Fatal("Expected empty orderbook on bad request")
 	}
@@ -44,7 +44,7 @@ func TestOrderbook(t *testing.T) {
 
 func TestNewOrder(t *testing.T) {
 	// Get a current price to use for trade
-	trades, err := api.Trades("ltcusd", 1)
+	trades, err := client.Trades("ltcusd", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestNewOrder(t *testing.T) {
 	otype := "limit"
 
 	// Test submitting a new order
-	order, err := api.NewOrder(symbol, amount, price, exchange, side, otype)
+	order, err := client.NewOrder(symbol, amount, price, exchange, side, otype)
 	if err != nil || order.ID == 0 {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestNewOrder(t *testing.T) {
 	}
 
 	// Test status
-	order, err = api.OrderStatus(order.ID)
+	order, err = client.OrderStatus(order.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestNewOrder(t *testing.T) {
 
 	// Test replacing the active order
 	price += 0.1
-	order, err = api.ReplaceOrder(order.ID, symbol, amount, price, exchange, side, otype)
+	order, err = client.ReplaceOrder(order.ID, symbol, amount, price, exchange, side, otype)
 	if err != nil || order.ID == 0 {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestNewOrder(t *testing.T) {
 	t.Logf("Increased price by 0.1")
 
 	// Test status
-	order, err = api.OrderStatus(order.ID)
+	order, err = client.OrderStatus(order.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,14 +114,14 @@ func TestNewOrder(t *testing.T) {
 	t.Logf("Order is confirmed live")
 
 	// Test cancelling the order
-	order, err = api.CancelOrder(order.ID)
+	order, err = client.CancelOrder(order.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("Cancelled order")
 
 	// Test status
-	order, err = api.OrderStatus(order.ID)
+	order, err = client.OrderStatus(order.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestNewOrder(t *testing.T) {
 	t.Logf("Cancellation is confirmed")
 
 	// Test submitting a bad order
-	order, err = api.NewOrder("badsymbol", 0.1, 300, "bitfinex", "sell", "limit")
+	order, err = client.NewOrder("badsymbol", 0.1, 300, "bitfinex", "sell", "limit")
 	if order.ID != 0 {
 		t.Fatal("Expected order.ID == 0 on bad order")
 	}
@@ -139,7 +139,7 @@ func TestNewOrder(t *testing.T) {
 
 func TestMultipleNewOrders(t *testing.T) {
 	// Get a current price to use for trade
-	trades, err := api.Trades("ltcusd", 1)
+	trades, err := client.Trades("ltcusd", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestMultipleNewOrders(t *testing.T) {
 	}
 
 	// Test submitting a new multiple order
-	orders, err := api.MultipleNewOrders(params)
+	orders, err := client.MultipleNewOrders(params)
 	if err != nil || orders.Orders[0].ID == 0 || orders.Orders[1].ID == 0 {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestMultipleNewOrders(t *testing.T) {
 	t.Logf("Placed a new sell order of 0.1 ltcusd @ %v limit with ID: %d", askPrice, orders.Orders[1].ID)
 
 	// Test cancelling all active orders
-	success, err := api.CancelAll()
+	success, err := client.CancelAll()
 	if err != nil || !success {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestMultipleNewOrders(t *testing.T) {
 }
 
 func TestActivePositions(t *testing.T) {
-	_, err := api.ActivePositions()
+	_, err := client.ActivePositions()
 	if err != nil {
 		t.Fatal(err)
 	}
