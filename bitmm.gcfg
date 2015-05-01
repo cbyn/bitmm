@@ -1,10 +1,10 @@
 [sec]
 symbol         = "ltcusd" # Instrument to trade
-tradeNum       = 50 # Number of trades to use in calculations
-weightDuration = 90 # Number of seconds back for a 50% weight
-minPos         = .25 # Min order size
-maxPos         = 250 # Maximum Position size
-minEdge        = .03 # Minimum edge for position entry
-stdMult        = 4 # Multiplier for standard deviation
-exitPercent    = .33 # Percent of edge for position exit
-minChange      = .001 # Minumum change required to update prices
+tradeNum       = 50 # Number of historical trades to use in theoretical value calculation
+weightDuration = 90 # Number of seconds back for a 50% weight in theoretical value calculation
+minPos         = .25 # Minimum order size
+maxPos         = 250 # Maximum position size
+minEdge        = .03 # Minimum theoretical edge required for position entry
+stdMult        = 4 # Multiplier for standard deviation in theoretical value calculation
+exitPercent    = .33 # Percent of edge required when exiting an existing position
+minChange      = .001 # Minumum change in theoretical value required to update orders

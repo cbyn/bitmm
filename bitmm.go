@@ -1,16 +1,19 @@
+// Toy trading system for the Bitfinex cryptocurrency exchange
+
 package main
 
 import (
 	"bitmm/bitfinex"
-	"code.google.com/p/gcfg"
 	"flag"
 	"fmt"
-	"github.com/grd/stat"
 	"log"
 	"math"
 	"os"
 	"os/exec"
 	"time"
+
+	"code.google.com/p/gcfg"
+	"github.com/grd/stat"
 )
 
 // Config stores user configuration
@@ -151,6 +154,7 @@ func sendOrders(theo, position, stdev float64) bitfinex.Orders {
 	return orders
 }
 
+// Calculate parameters for orders
 func calculateOrderParams(position, theo, stdev float64) []bitfinex.OrderParams {
 	var params []bitfinex.OrderParams
 
@@ -184,6 +188,7 @@ func calculateOrderParams(position, theo, stdev float64) []bitfinex.OrderParams 
 	return params
 }
 
+// Get position data
 func checkPosition(positionChan chan<- float64) {
 	var position float64
 	posSlice, err := api.ActivePositions()
@@ -220,6 +225,7 @@ func calculateTheo(trades bitfinex.Trades) float64 {
 	return sum / weightTotal
 }
 
+// Calculate standard deviation
 func calculateStdev(trades bitfinex.Trades) float64 {
 	x := make(stat.Float64Slice, len(trades)-1)
 	for i := 1; i < len(trades); i++ {

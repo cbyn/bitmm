@@ -27,12 +27,12 @@ type Bitfinex struct {
 	APISecret string
 }
 
-// ErrorMessage error message from exchange
+// ErrorMessage contains an error message from exchange
 type ErrorMessage struct {
 	Message string `json:"message"`
 }
 
-// Book orderbook data from the exchange
+// Book contains orderbook data from the exchange
 type Book struct {
 	Bids []BookItems // Slice of bid data items
 	Asks []BookItems // Slice of ask data items
@@ -40,14 +40,14 @@ type Book struct {
 
 // TODO why is timestamp a float?
 
-// BookItems inner orderbook data from the exchange
+// BookItems contains inner orderbook data from the exchange
 type BookItems struct {
 	Price     float64 `json:"price,string"`     // Order price
 	Amount    float64 `json:"amount,string"`    // Order volume
 	Timestamp float64 `json:"timestamp,string"` // Exchange timestamp
 }
 
-// Trade executed trade data from the exchange
+// Trade contains executed trade data from the exchange
 type Trade struct {
 	Timestamp int     `json:"timestamp"`     // Exchange timestamp
 	TID       int     `json:"tid"`           // Trade ID
@@ -57,12 +57,12 @@ type Trade struct {
 	Type      string  `json:"type"`          // Type, if it can be determined
 }
 
-// Trades slice of trades
+// Trades is slice of trades
 type Trades []Trade
 
 // TODO why is timestamp a float?
 
-// Order order data to/from the exchange
+// Order contains order data to/from the exchange
 type Order struct {
 	ID              int     `json:"id"`                         // Order ID
 	Symbol          string  `json:"symbol"`                     // The symbol name the order belongs to
@@ -101,13 +101,13 @@ type Order struct {
 // 	UpdatedAt      string  `json:"updated_at"`            // Update time
 // }
 
-// Orders used in processing multiple orders
+// Orders is used in processing multiple orders
 type Orders struct {
 	Orders  []Order `json:"order_ids"`
 	Message string  `json:"message"`
 }
 
-// OrderParams inputs for submitting an order
+// OrderParams contains inputs for submitting an order
 type OrderParams struct {
 	Symbol   string  `json:"symbol"`
 	Amount   float64 `json:"amount,string"`
@@ -117,12 +117,12 @@ type OrderParams struct {
 	Type     string  `json:"type"`
 }
 
-// Cancellation response from CancelAll
+// Cancellation contains a response from CancelAll
 type Cancellation struct {
 	Result string `json:"result"`
 }
 
-// Position from exchange
+// Position contains position data from the exchange
 type Position struct {
 	ID        int     `json:"id"`               // Position ID
 	Symbol    string  `json:"symbol"`           // The symbol for the contract
@@ -134,7 +134,7 @@ type Position struct {
 	PL        float64 `json:"pl,string"`        // Current PL
 }
 
-// Positions returned by ActivePositions call
+// Positions is a slice of Position
 type Positions []Position
 
 // New returns a new Bitfinex API instance
@@ -142,7 +142,7 @@ func New(key, secret string) Bitfinex {
 	return Bitfinex{key, secret}
 }
 
-// Trades get trade data from the exchange
+// Trades gets trade data from the exchange
 func (bitfinex Bitfinex) Trades(symbol string, limitTrades int) (Trades, error) {
 	var trades Trades
 
@@ -160,7 +160,7 @@ func (bitfinex Bitfinex) Trades(symbol string, limitTrades int) (Trades, error) 
 	return trades, nil
 }
 
-// Orderbook get orderbook data from the exchange
+// Orderbook gets orderbook data from the exchange
 func (bitfinex Bitfinex) Orderbook(symbol string, limitBids, limitAsks int) (Book, error) {
 	var book Book
 
@@ -178,7 +178,7 @@ func (bitfinex Bitfinex) Orderbook(symbol string, limitBids, limitAsks int) (Boo
 	return book, nil
 }
 
-// NewOrder post new order to the exchange
+// NewOrder posts new order to the exchange
 func (bitfinex Bitfinex) NewOrder(symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
 	request := struct {
 		URL      string  `json:"request"`
@@ -203,7 +203,7 @@ func (bitfinex Bitfinex) NewOrder(symbol string, amount, price float64, exchange
 	return bitfinex.postOrder(request.URL, request)
 }
 
-// MultipleNewOrders post multiple new orders to the exchange
+// MultipleNewOrders posts multiple new orders to the exchange
 func (bitfinex Bitfinex) MultipleNewOrders(params []OrderParams) (Orders, error) {
 	request := struct {
 		URL    string        `json:"request"`
@@ -218,7 +218,7 @@ func (bitfinex Bitfinex) MultipleNewOrders(params []OrderParams) (Orders, error)
 	return bitfinex.postMultiOrder(request.URL, request)
 }
 
-// CancelOrder cancel existing order on the exchange
+// CancelOrder cancels existing orders on the exchange
 func (bitfinex Bitfinex) CancelOrder(id int) (Order, error) {
 	request := struct {
 		URL     string `json:"request"`
@@ -233,7 +233,7 @@ func (bitfinex Bitfinex) CancelOrder(id int) (Order, error) {
 	return bitfinex.postOrder(request.URL, request)
 }
 
-// CancelAll cancel all active orders
+// CancelAll cancels all active orders
 func (bitfinex Bitfinex) CancelAll() (bool, error) {
 	request := struct {
 		URL   string `json:"request"`
@@ -261,7 +261,7 @@ func (bitfinex Bitfinex) CancelAll() (bool, error) {
 	return success, nil
 }
 
-// ReplaceOrder replace existing order on the exchange
+// ReplaceOrder replaces existing orders on the exchange
 func (bitfinex Bitfinex) ReplaceOrder(id int, symbol string, amount, price float64, exchange, side, otype string) (Order, error) {
 	request := struct {
 		URL      string  `json:"request"`
@@ -288,7 +288,7 @@ func (bitfinex Bitfinex) ReplaceOrder(id int, symbol string, amount, price float
 	return bitfinex.postOrder(request.URL, request)
 }
 
-// OrderStatus get order status
+// OrderStatus gets order status
 func (bitfinex Bitfinex) OrderStatus(id int) (Order, error) {
 	request := struct {
 		URL     string `json:"request"`
@@ -335,7 +335,7 @@ func (bitfinex Bitfinex) ActivePositions() (Positions, error) {
 
 // TODO: ActiveOrders
 
-// postOrder used in order-related API methods
+// postOrder is used in order-related API methods
 func (bitfinex Bitfinex) postOrder(url string, request interface{}) (Order, error) {
 	var order Order
 
@@ -358,7 +358,7 @@ func (bitfinex Bitfinex) postOrder(url string, request interface{}) (Order, erro
 	return order, nil
 }
 
-// postMultiOrder used in multi order-related API methods
+// postMultiOrder is used in multi order-related API methods
 func (bitfinex Bitfinex) postMultiOrder(url string, request interface{}) (Orders, error) {
 	var orders Orders
 
@@ -381,7 +381,7 @@ func (bitfinex Bitfinex) postMultiOrder(url string, request interface{}) (Orders
 	return orders, nil
 }
 
-// get API unauthenticated GET
+// get executes an unauthenticated GET
 func (bitfinex Bitfinex) get(url string) ([]byte, error) {
 	resp, err := http.Get(APIURL + url)
 	if err != nil {
@@ -392,7 +392,7 @@ func (bitfinex Bitfinex) get(url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-// post API authenticated POST
+// post executes an authenticated POST
 func (bitfinex Bitfinex) post(url string, payload interface{}) ([]byte, error) {
 	// Payload = parameters-dictionary -> JSON encode -> base64
 	payloadJSON, err := json.Marshal(payload)

@@ -1,3 +1,5 @@
+// This contains live order tests and requires environment variables BITFINEX_KEY and BITFINEX_SECRET
+
 package bitfinex
 
 import (
